@@ -18,7 +18,7 @@ const WORDS = [
   "ゆき", "よる", "らいおん", "りんご", "るす", "れもん", "ろうそく", "わに", "おんがく", "きもの",
 ];
 
-const FLICK_THRESHOLD = 22;
+const BASE_FLICK_THRESHOLD = 18;
 const ROUND_SECONDS = 30;
 const HIGH_SCORE_KEY = "flick-practice-high-score";
 
@@ -44,6 +44,13 @@ let highScore = Number(localStorage.getItem(HIGH_SCORE_KEY) || 0);
 
 function randomWord() {
   return WORDS[Math.floor(Math.random() * WORDS.length)];
+}
+
+
+function vibrate(pattern = 12) {
+  if ("vibrate" in navigator) {
+    navigator.vibrate(pattern);
+  }
 }
 
 function setMessage(text, tone = "") {
@@ -108,6 +115,7 @@ function judgeInput(char) {
       const point = calcWordPoint(currentWord.length, elapsed);
       score += point;
       saveHighScoreIfNeeded();
+      vibrate(20);
       setMessage(`✅ ${currentWord} クリア！ +${point}pt`, "good");
       setNextWord();
     } else {
@@ -119,12 +127,14 @@ function judgeInput(char) {
 
   const penalty = 20;
   score = Math.max(0, score - penalty);
+  vibrate([20, 30, 20]);
   setMessage(`❌ ミス！ -${penalty}pt（次は「${expected}」）`, "bad");
   updateStatus();
 }
 
-function directionFromDelta(dx, dy) {
-  if (Math.abs(dx) < FLICK_THRESHOLD && Math.abs(dy) < FLICK_THRESHOLD) {
+function directionFromDelta(dx, dy, pointerType = "touch") {
+  const threshold = pointerType === "mouse" ? BASE_FLICK_THRESHOLD + 8 : BASE_FLICK_THRESHOLD;
+  if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) {
     return 0;
   }
   if (Math.abs(dx) > Math.abs(dy)) {
@@ -157,7 +167,7 @@ function buildKeyboard() {
     node.addEventListener("pointerup", (event) => {
       const dx = event.clientX - sx;
       const dy = event.clientY - sy;
-      const dir = directionFromDelta(dx, dy);
+      const dir = directionFromDelta(dx, dy, event.pointerType);
       const chosen = chars[dir] || chars[0];
       node.classList.remove("flicking");
       judgeInput(chosen);
@@ -208,3 +218,14 @@ resetBtn.addEventListener("click", resetGame);
 
 buildKeyboard();
 resetGame();
+
+
+// iOS Safariでのダブルタップズーム抑制
+let lastTouchEnd = 0;
+document.addEventListener("touchend", (event) => {
+  const now = Date.now();
+  if (now - lastTouchEnd <= 280) {
+    event.preventDefault();
+  }
+  lastTouchEnd = now;
+}, { passive: false });
