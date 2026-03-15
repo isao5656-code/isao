@@ -51,6 +51,7 @@ h1 {
   align-items: center;
   justify-content: center;
   margin-bottom: 0.9rem;
+  flex-wrap: wrap;
 }
 
 button {
@@ -95,9 +96,39 @@ button:disabled {
 .box.goal { background: var(--box-on-goal); color: #072; }
 .player { background: var(--player); color: #041b2d; }
 
+.touch-controls {
+  margin: 1rem auto 0;
+  width: min(220px, 90vw);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-areas:
+    '. up .'
+    'left down right';
+  gap: 0.45rem;
+  touch-action: manipulation;
+}
+
+.dir {
+  min-height: 48px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  padding: 0.6rem 0;
+}
+
+.dir.up { grid-area: up; }
+.dir.left { grid-area: left; }
+.dir.down { grid-area: down; }
+.dir.right { grid-area: right; }
+
 .status {
   text-align: center;
   min-height: 1.5rem;
   margin: 0.8rem 0 0;
   font-weight: 700;
+}
+
+@media (min-width: 900px) {
+  .touch-controls {
+    opacity: 0.95;
+  }
 }

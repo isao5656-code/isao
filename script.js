@@ -357,4 +357,23 @@ document.addEventListener('keydown', (event) => {
 resetBtn.addEventListener('click', () => loadLevel(currentLevel));
 nextBtn.addEventListener('click', () => loadLevel(currentLevel + 1));
 
+const touchDirMap = {
+  up: [0, -1],
+  down: [0, 1],
+  left: [-1, 0],
+  right: [1, 0],
+};
+
+for (const button of document.querySelectorAll('.dir')) {
+  const handleDirection = (event) => {
+    event.preventDefault();
+    const dir = touchDirMap[button.dataset.dir];
+    if (!dir) return;
+    move(dir[0], dir[1]);
+  };
+
+  button.addEventListener('click', handleDirection);
+  button.addEventListener('touchstart', handleDirection, { passive: false });
+}
+
 loadLevel(0);
