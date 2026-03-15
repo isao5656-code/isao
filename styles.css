@@ -1,0 +1,103 @@
+:root {
+  color-scheme: light dark;
+  --bg: #161a1d;
+  --panel: #22272b;
+  --wall: #495057;
+  --floor: #343a40;
+  --goal: #ffca3a;
+  --box: #c77dff;
+  --box-on-goal: #80ed99;
+  --player: #4cc9f0;
+  --text: #f8f9fa;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  background: radial-gradient(circle at top, #2b2d42, var(--bg));
+  color: var(--text);
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
+.app {
+  width: min(92vw, 720px);
+  background: color-mix(in oklab, var(--panel) 90%, black);
+  border: 1px solid #555;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 16px 50px rgb(0 0 0 / 40%);
+}
+
+h1 {
+  margin: 0 0 0.4rem;
+  text-align: center;
+}
+
+.help {
+  margin: 0 0 1rem;
+  text-align: center;
+  opacity: 0.9;
+}
+
+.hud {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.9rem;
+}
+
+button {
+  border: 1px solid #777;
+  background: #2f3b46;
+  color: inherit;
+  border-radius: 8px;
+  padding: 0.45rem 0.8rem;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.board-wrap {
+  display: grid;
+  place-items: center;
+}
+
+.board {
+  display: grid;
+  gap: 4px;
+  width: fit-content;
+}
+
+.cell {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-size: 1.2rem;
+  user-select: none;
+}
+
+.wall { background: var(--wall); }
+.floor { background: var(--floor); }
+.goal { background: var(--goal); color: #222; }
+.box { background: var(--box); }
+.box.goal { background: var(--box-on-goal); color: #072; }
+.player { background: var(--player); color: #041b2d; }
+
+.status {
+  text-align: center;
+  min-height: 1.5rem;
+  margin: 0.8rem 0 0;
+  font-weight: 700;
+}
