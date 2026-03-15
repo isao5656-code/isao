@@ -1,4 +1,4 @@
-const levels = [
+const baseLevels = [
   [
     '########',
     '#..G...#',
@@ -16,7 +16,195 @@ const levels = [
     '#........#',
     '##########',
   ],
+  [
+    '##########',
+    '#....G...#',
+    '#....B...#',
+    '#..###...#',
+    '#..P.....#',
+    '#....G.B.#',
+    '##########',
+  ],
+  [
+    '##########',
+    '#....G...#',
+    '#..##....#',
+    '#..B..B..#',
+    '#..##....#',
+    '#..P.G...#',
+    '##########',
+  ],
+  [
+    '##########',
+    '#..G..G..#',
+    '#..B..B..#',
+    '#........#',
+    '#...##...#',
+    '#...P....#',
+    '##########',
+  ],
+  [
+    '##########',
+    '#.G......#',
+    '#.B.###..#',
+    '#...#....#',
+    '#...#.B..#',
+    '#..G..P..#',
+    '##########',
+  ],
+  [
+    '##########',
+    '#..G.....#',
+    '#..B.##..#',
+    '#....##..#',
+    '#.P....G.#',
+    '#.....B..#',
+    '##########',
+  ],
+  [
+    '##########',
+    '#..G.....#',
+    '#..B.....#',
+    '#..###...#',
+    '#..#.....#',
+    '#..#..P..#',
+    '#..G..B..#',
+    '##########',
+  ],
+  [
+    '##########',
+    '#..G...G.#',
+    '#..B...B.#',
+    '#........#',
+    '#.###....#',
+    '#...P....#',
+    '##########',
+  ],
+  [
+    '##########',
+    '#.....G..#',
+    '#.###.B..#',
+    '#....#...#',
+    '#.P..#...#',
+    '#....G.B.#',
+    '##########',
+  ],
+  [
+    '##########',
+    '#..G.....#',
+    '#..B..##.#',
+    '#.....##.#',
+    '#..P.....#',
+    '#..G..B..#',
+    '##########',
+  ],
+  [
+    '##########',
+    '#....G...#',
+    '#....B...#',
+    '#.##..##.#',
+    '#....P...#',
+    '#...G.B..#',
+    '##########',
+  ],
+  [
+    '##########',
+    '#.G....G.#',
+    '#.B....B.#',
+    '#..####..#',
+    '#....P...#',
+    '#........#',
+    '##########',
+  ],
 ];
+
+function toMatrix(level) {
+  return level.map((row) => row.split(''));
+}
+
+function toLevel(matrix) {
+  return matrix.map((row) => row.join(''));
+}
+
+function mirrorHorizontal(level) {
+  return level.map((row) => row.split('').reverse().join(''));
+}
+
+function mirrorVertical(level) {
+  return [...level].reverse();
+}
+
+function rotate180(level) {
+  return mirrorVertical(mirrorHorizontal(level));
+}
+
+function transformLevel(level, kind) {
+  if (kind === 'mirrorH') return mirrorHorizontal(level);
+  if (kind === 'mirrorV') return mirrorVertical(level);
+  if (kind === 'rotate180') return rotate180(level);
+  return level;
+}
+
+function findCoords(level, targetChars) {
+  const result = [];
+  for (let y = 0; y < level.length; y += 1) {
+    for (let x = 0; x < level[y].length; x += 1) {
+      if (targetChars.includes(level[y][x])) {
+        result.push({ x, y });
+      }
+    }
+  }
+  return result;
+}
+
+function cyclePlayerPosition(level) {
+  const matrix = toMatrix(level);
+  const floors = [];
+  let player = null;
+
+  for (let y = 0; y < matrix.length; y += 1) {
+    for (let x = 0; x < matrix[y].length; x += 1) {
+      const c = matrix[y][x];
+      if (c === '.') floors.push({ x, y });
+      if (c === 'P') player = { x, y };
+    }
+  }
+
+  if (!player || floors.length === 0) return level;
+
+  const nextFloor = floors[(player.x + player.y) % floors.length];
+  matrix[player.y][player.x] = '.';
+  matrix[nextFloor.y][nextFloor.x] = 'P';
+  return toLevel(matrix);
+}
+
+function isLevelValid(level) {
+  const allRowsSameWidth = level.every((row) => row.length === level[0].length);
+  const playerCount = findCoords(level, ['P']).length;
+  const boxCount = findCoords(level, ['B']).length;
+  const goalCount = findCoords(level, ['G']).length;
+  return allRowsSameWidth && playerCount === 1 && boxCount >= 1 && boxCount === goalCount;
+}
+
+function buildLevelSet(targetCount) {
+  const variants = ['base', 'mirrorH', 'mirrorV', 'rotate180'];
+  const generated = [];
+
+  for (const seed of baseLevels) {
+    for (const variant of variants) {
+      const transformed = transformLevel(seed, variant);
+      generated.push(transformed);
+      generated.push(cyclePlayerPosition(transformed));
+      if (generated.length >= targetCount) break;
+    }
+    if (generated.length >= targetCount) break;
+  }
+
+  const filtered = generated.filter(isLevelValid);
+  return filtered.slice(0, targetCount);
+}
+
+const levels = buildLevelSet(100);
 
 const boardEl = document.getElementById('board');
 const stepsEl = document.getElementById('steps');
@@ -37,7 +225,7 @@ function loadLevel(index) {
   currentLevel = index;
   map = cloneMap(levels[index]);
   steps = 0;
-  statusEl.textContent = '';
+  statusEl.textContent = `ステージ ${currentLevel + 1} / ${levels.length}`;
   nextBtn.disabled = true;
 
   for (let y = 0; y < map.length; y += 1) {
@@ -95,7 +283,7 @@ function move(dx, dy) {
   steps += 1;
 
   if (isCleared()) {
-    statusEl.textContent = `クリア！ 手数 ${steps}`;
+    statusEl.textContent = `ステージ ${currentLevel + 1} クリア！ 手数 ${steps}`;
     if (currentLevel < levels.length - 1) {
       nextBtn.disabled = false;
     }
@@ -145,7 +333,7 @@ function render() {
     }
   }
 
-  stepsEl.textContent = `手数: ${steps}`;
+  stepsEl.textContent = `手数: ${steps} | ステージ: ${currentLevel + 1}/${levels.length}`;
 }
 
 const keyMap = {
