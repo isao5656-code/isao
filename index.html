@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>倉庫番ミニ</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app">
+    <h1>倉庫番ミニ</h1>
+    <p class="help">矢印キー / WASD / 画面下の方向ボタンで移動。箱（📦）をすべてゴール（⭐）へ運ぼう。</p>
+
+    <section class="hud">
+      <span id="steps">手数: 0</span>
+      <button id="resetBtn" type="button">リセット</button>
+      <button id="nextBtn" type="button" disabled>次のステージ</button>
+    </section>
+
+    <section class="board-wrap">
+      <div id="board" class="board" aria-label="ゲームボード"></div>
+      <div id="clearBanner" class="clear-banner" hidden>
+        <strong>🎉 ステージクリア！</strong>
+        <span id="clearDetail"></span>
+      </div>
+    </section>
+
+    <section class="touch-controls" aria-label="スマホ操作ボタン">
+      <button type="button" class="dir up" data-dir="up" aria-label="上へ移動">▲</button>
+      <button type="button" class="dir left" data-dir="left" aria-label="左へ移動">◀</button>
+      <button type="button" class="dir down" data-dir="down" aria-label="下へ移動">▼</button>
+      <button type="button" class="dir right" data-dir="right" aria-label="右へ移動">▶</button>
+    </section>
+
+    <p id="status" class="status" aria-live="polite"></p>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
