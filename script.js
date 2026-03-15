@@ -211,6 +211,8 @@ const stepsEl = document.getElementById('steps');
 const statusEl = document.getElementById('status');
 const resetBtn = document.getElementById('resetBtn');
 const nextBtn = document.getElementById('nextBtn');
+const clearBannerEl = document.getElementById('clearBanner');
+const clearDetailEl = document.getElementById('clearDetail');
 
 let currentLevel = 0;
 let map = [];
@@ -221,10 +223,25 @@ function cloneMap(source) {
   return source.map((row) => row.split(''));
 }
 
+function hideClearBanner() {
+  clearBannerEl.hidden = true;
+  clearDetailEl.textContent = '';
+}
+
+function showClearBanner() {
+  clearBannerEl.hidden = false;
+  if (currentLevel < levels.length - 1) {
+    clearDetailEl.textContent = `手数 ${steps} でクリア！「次のステージ」へ進めます。`;
+  } else {
+    clearDetailEl.textContent = `手数 ${steps} で最終ステージをクリア！おめでとう！`;
+  }
+}
+
 function loadLevel(index) {
   currentLevel = index;
   map = cloneMap(levels[index]);
   steps = 0;
+  hideClearBanner();
   statusEl.textContent = `ステージ ${currentLevel + 1} / ${levels.length}`;
   nextBtn.disabled = true;
 
@@ -284,6 +301,7 @@ function move(dx, dy) {
 
   if (isCleared()) {
     statusEl.textContent = `ステージ ${currentLevel + 1} クリア！ 手数 ${steps}`;
+    showClearBanner();
     if (currentLevel < levels.length - 1) {
       nextBtn.disabled = false;
     }
