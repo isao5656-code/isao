@@ -77,7 +77,7 @@ body {
 }
 
 .target {
-  font-size: 1.25rem;
+  font-size: 1.45rem;
 }
 
 .typed {
@@ -92,9 +92,9 @@ body {
 
 .keyboard {
   width: 100%;
-  max-width: 430px;
+  max-width: 360px;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -134,28 +134,21 @@ body {
   color: var(--muted);
 }
 
-.up {
-  top: 5px;
-  left: 50%;
-  transform: translateX(-50%);
+.up { top: 5px; left: 50%; transform: translateX(-50%); }
+.right { right: 6px; top: 50%; transform: translateY(-50%); }
+.down { bottom: 5px; left: 50%; transform: translateX(-50%); }
+.left { left: 6px; top: 50%; transform: translateY(-50%); }
+
+.action-key {
+  background: #f0f3fa;
 }
 
-.right {
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
+.action-key .center {
+  font-size: 1.2rem;
 }
 
-.down {
-  bottom: 5px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.left {
-  left: 6px;
-  top: 50%;
-  transform: translateY(-50%);
+.action-key .hint {
+  display: none;
 }
 
 .controls {
@@ -191,13 +184,8 @@ button.secondary {
   font-size: 0.9rem;
 }
 
-.message.bad {
-  color: var(--danger);
-}
-
-.message.good {
-  color: #238636;
-}
+.message.bad { color: var(--danger); }
+.message.good { color: #238636; }
 
 @media (min-width: 640px) {
   body {
@@ -218,22 +206,17 @@ button.secondary {
   }
 
   .status {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
   }
 
   .keyboard {
-    max-width: 470px;
+    max-width: 420px;
     gap: 10px;
   }
 
-  .center {
-    font-size: 1.45rem;
-  }
-
-  .hint {
-    font-size: 0.8rem;
-  }
+  .center { font-size: 1.45rem; }
+  .hint { font-size: 0.8rem; }
 
   .controls {
     position: static;

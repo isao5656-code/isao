@@ -1,14 +1,16 @@
-const KEYS = [
-  ["あ", "い", "う", "え", "お"],
-  ["か", "き", "く", "け", "こ"],
-  ["さ", "し", "す", "せ", "そ"],
-  ["た", "ち", "つ", "て", "と"],
-  ["な", "に", "ぬ", "ね", "の"],
-  ["は", "ひ", "ふ", "へ", "ほ"],
-  ["ま", "み", "む", "め", "も"],
-  ["や", "ゃ", "ゆ", "ゅ", "よ"],
-  ["ら", "り", "る", "れ", "ろ"],
-  ["わ", "を", "ん", "ー", "、"],
+const KEY_LAYOUT = [
+  { type: "kana", chars: ["あ", "い", "う", "え", "お"] },
+  { type: "kana", chars: ["か", "き", "く", "け", "こ"] },
+  { type: "kana", chars: ["さ", "し", "す", "せ", "そ"] },
+  { type: "kana", chars: ["た", "ち", "つ", "て", "と"] },
+  { type: "kana", chars: ["な", "に", "ぬ", "ね", "の"] },
+  { type: "kana", chars: ["は", "ひ", "ふ", "へ", "ほ"] },
+  { type: "kana", chars: ["ま", "み", "む", "め", "も"] },
+  { type: "kana", chars: ["や", "ゃ", "ゆ", "ゅ", "よ"] },
+  { type: "kana", chars: ["ら", "り", "る", "れ", "ろ"] },
+  { type: "kana", chars: ["わ", "を", "ん", "ー", "、"] },
+  { type: "kana", chars: ["。", "！", "？", "…", "・"] },
+  { type: "backspace", label: "⌫" },
 ];
 
 const WORDS = [
@@ -18,7 +20,7 @@ const WORDS = [
   "ゆき", "よる", "らいおん", "りんご", "るす", "れもん", "ろうそく", "わに", "おんがく", "きもの",
 ];
 
-const BASE_FLICK_THRESHOLD = 18;
+const BASE_FLICK_THRESHOLD = 20;
 const ROUND_SECONDS = 30;
 const HIGH_SCORE_KEY = "flick-practice-high-score";
 
@@ -46,8 +48,7 @@ function randomWord() {
   return WORDS[Math.floor(Math.random() * WORDS.length)];
 }
 
-
-function vibrate(pattern = 12) {
+function vibrate(pattern = 10) {
   if ("vibrate" in navigator) {
     navigator.vibrate(pattern);
   }
@@ -132,6 +133,19 @@ function judgeInput(char) {
   updateStatus();
 }
 
+function handleBackspace() {
+  if (!running) {
+    return;
+  }
+  if (!typed.length) {
+    return;
+  }
+  typed = typed.slice(0, -1);
+  updateStatus();
+  setMessage("1文字削除しました");
+  vibrate(8);
+}
+
 function directionFromDelta(dx, dy, pointerType = "touch") {
   const threshold = pointerType === "mouse" ? BASE_FLICK_THRESHOLD + 8 : BASE_FLICK_THRESHOLD;
   if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) {
@@ -143,39 +157,58 @@ function directionFromDelta(dx, dy, pointerType = "touch") {
   return dy > 0 ? 3 : 1;
 }
 
+function setupKanaKey(node, chars) {
+  const [center, up, right, down, left] = chars;
+  node.querySelector(".center").textContent = center;
+  node.querySelector(".up").textContent = up;
+  node.querySelector(".right").textContent = right;
+  node.querySelector(".down").textContent = down;
+  node.querySelector(".left").textContent = left;
+
+  let sx = 0;
+  let sy = 0;
+
+  node.addEventListener("pointerdown", (event) => {
+    sx = event.clientX;
+    sy = event.clientY;
+    node.classList.add("flicking");
+    node.setPointerCapture(event.pointerId);
+  });
+
+  node.addEventListener("pointerup", (event) => {
+    const dx = event.clientX - sx;
+    const dy = event.clientY - sy;
+    const dir = directionFromDelta(dx, dy, event.pointerType);
+    const chosen = chars[dir] || chars[0];
+    node.classList.remove("flicking");
+    judgeInput(chosen);
+  });
+
+  node.addEventListener("pointercancel", () => {
+    node.classList.remove("flicking");
+  });
+}
+
+function setupActionKey(node, label, onClick) {
+  node.classList.add("action-key");
+  node.querySelector(".center").textContent = label;
+  node.querySelector(".up").textContent = "";
+  node.querySelector(".right").textContent = "";
+  node.querySelector(".down").textContent = "";
+  node.querySelector(".left").textContent = "";
+
+  node.addEventListener("click", onClick);
+}
+
 function buildKeyboard() {
-  KEYS.forEach((chars) => {
+  KEY_LAYOUT.forEach((entry) => {
     const node = template.content.firstElementChild.cloneNode(true);
-    const [center, up, right, down, left] = chars;
 
-    node.querySelector(".center").textContent = center;
-    node.querySelector(".up").textContent = up;
-    node.querySelector(".right").textContent = right;
-    node.querySelector(".down").textContent = down;
-    node.querySelector(".left").textContent = left;
-
-    let sx = 0;
-    let sy = 0;
-
-    node.addEventListener("pointerdown", (event) => {
-      sx = event.clientX;
-      sy = event.clientY;
-      node.classList.add("flicking");
-      node.setPointerCapture(event.pointerId);
-    });
-
-    node.addEventListener("pointerup", (event) => {
-      const dx = event.clientX - sx;
-      const dy = event.clientY - sy;
-      const dir = directionFromDelta(dx, dy, event.pointerType);
-      const chosen = chars[dir] || chars[0];
-      node.classList.remove("flicking");
-      judgeInput(chosen);
-    });
-
-    node.addEventListener("pointercancel", () => {
-      node.classList.remove("flicking");
-    });
+    if (entry.type === "kana") {
+      setupKanaKey(node, entry.chars);
+    } else if (entry.type === "backspace") {
+      setupActionKey(node, entry.label, handleBackspace);
+    }
 
     keyboard.appendChild(node);
   });
@@ -219,8 +252,6 @@ resetBtn.addEventListener("click", resetGame);
 buildKeyboard();
 resetGame();
 
-
-// iOS Safariでのダブルタップズーム抑制
 let lastTouchEnd = 0;
 document.addEventListener("touchend", (event) => {
   const now = Date.now();
