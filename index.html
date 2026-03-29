@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fire Emblem-like Tactical RPG</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a1a;
+      color: #ffffff;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    header {
+      width: 100%;
+      background: linear-gradient(90deg, #0d1b3e, #1a0d3e);
+      border-bottom: 2px solid #334;
+      padding: 6px 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    header h1 {
+      font-size: 18px;
+      color: #aac4ff;
+      letter-spacing: 2px;
+      text-shadow: 0 0 10px #4488ff88;
+    }
+
+    header .subtitle {
+      font-size: 12px;
+      color: #6688aa;
+    }
+
+    #game-wrapper {
+      display: flex;
+      flex-direction: row;
+      gap: 10px;
+      padding: 8px;
+      width: 100%;
+      max-width: 1100px;
+    }
+
+    #canvas-container {
+      position: relative;
+      flex: 1;
+      cursor: default;
+    }
+
+    canvas {
+      display: block;
+      border: 2px solid #334466;
+      border-radius: 4px;
+      box-shadow: 0 0 20px rgba(40, 80, 200, 0.3);
+      image-rendering: pixelated;
+    }
+
+    #sidebar {
+      width: 220px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .panel {
+      background: rgba(10, 20, 40, 0.95);
+      border: 1px solid #334466;
+      border-radius: 6px;
+      padding: 10px;
+    }
+
+    .panel h3 {
+      font-size: 12px;
+      color: #6688cc;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid #223;
+      padding-bottom: 4px;
+    }
+
+    .controls-list {
+      list-style: none;
+      font-size: 12px;
+      line-height: 1.9;
+      color: #aabbcc;
+    }
+
+    .controls-list li span.key {
+      display: inline-block;
+      background: #223;
+      border: 1px solid #445;
+      border-radius: 3px;
+      padding: 0 5px;
+      font-family: monospace;
+      color: #ccddff;
+      margin-right: 5px;
+      min-width: 24px;
+      text-align: center;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      margin-bottom: 4px;
+      color: #bbccdd;
+    }
+
+    .legend-color {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    #log-panel {
+      background: rgba(5, 10, 20, 0.95);
+      border: 1px solid #223344;
+      border-radius: 6px;
+      padding: 8px;
+      max-height: 160px;
+      overflow: hidden;
+    }
+
+    #log-panel h3 {
+      font-size: 11px;
+      color: #556688;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    #log-list {
+      list-style: none;
+      font-size: 11px;
+      line-height: 1.6;
+      color: #8899aa;
+    }
+
+    #log-list li:last-child {
+      color: #ccddef;
+    }
+
+    .weapon-triangle {
+      font-size: 11px;
+      color: #99aabb;
+      line-height: 1.7;
+    }
+
+    .wt-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 2px;
+    }
+
+    .wt-sword { color: #4488ff; }
+    .wt-axe   { color: #44aa44; }
+    .wt-lance { color: #dd4444; }
+    .wt-adv   { color: #ffaa44; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>⚔ Emblem of Valor</h1>
+  <span class="subtitle">Chapter 1: The Beginning</span>
+</header>
+
+<div id="game-wrapper">
+  <div id="canvas-container">
+    <canvas id="game-canvas"></canvas>
+  </div>
+
+  <div id="sidebar">
+    <!-- Controls -->
+    <div class="panel">
+      <h3>Controls</h3>
+      <ul class="controls-list">
+        <li><span class="key">Click</span> Select / Confirm</li>
+        <li><span class="key">R-click</span> Cancel</li>
+        <li><span class="key">Esc</span> Cancel</li>
+        <li><span class="key">R</span> Restart</li>
+      </ul>
+    </div>
+
+    <!-- Legend -->
+    <div class="panel">
+      <h3>Legend</h3>
+      <div class="legend-item">
+        <div class="legend-color" style="background:rgba(40,120,220,0.6)"></div>
+        Movement range
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background:rgba(220,60,40,0.5)"></div>
+        Attack range
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background:#2266cc; border-radius:50%"></div>
+        Player unit
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background:#883333; border-radius:50%"></div>
+        Enemy unit
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background:#ffdd00; border-radius:50%"></div>
+        Lord / Boss
+      </div>
+    </div>
+
+    <!-- Weapon Triangle -->
+    <div class="panel">
+      <h3>Weapon Triangle</h3>
+      <div class="weapon-triangle">
+        <div class="wt-row">
+          <span class="wt-sword">Sword</span>
+          <span class="wt-adv">▶</span>
+          <span class="wt-axe">Axe</span>
+        </div>
+        <div class="wt-row">
+          <span class="wt-axe">Axe</span>
+          <span class="wt-adv">▶</span>
+          <span class="wt-lance">Lance</span>
+        </div>
+        <div class="wt-row">
+          <span class="wt-lance">Lance</span>
+          <span class="wt-adv">▶</span>
+          <span class="wt-sword">Sword</span>
+        </div>
+        <div style="margin-top:4px; font-size:10px; color:#667788">
+          Advantage: +1 ATK, +15 Hit
+        </div>
+      </div>
+    </div>
+
+    <!-- Log -->
+    <div id="log-panel">
+      <h3>Battle Log</h3>
+      <ul id="log-list">
+        <li>Game started. Good luck!</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { Game } from './src/game.js';
+
+  const canvas = document.getElementById('game-canvas');
+  const logList = document.getElementById('log-list');
+
+  let game = null;
+
+  function startGame() {
+    try {
+      game = new Game(canvas);
+      // Patch the game's addLog to also update DOM log
+      const origAddLog = game._addLog.bind(game);
+      game._addLog = function(msg) {
+        origAddLog(msg);
+        if (msg) {
+          const li = document.createElement('li');
+          li.textContent = msg;
+          logList.appendChild(li);
+          while (logList.children.length > 12) {
+            logList.removeChild(logList.firstChild);
+          }
+          logList.scrollTop = logList.scrollHeight;
+        }
+      };
+    } catch (e) {
+      console.error('Game init error:', e);
+      canvas.getContext('2d').fillStyle = '#ff4444';
+      canvas.getContext('2d').fillText('Error: ' + e.message, 10, 40);
+    }
+  }
+
+  startGame();
+</script>
+
+</body>
+</html>
