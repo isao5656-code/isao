@@ -2,254 +2,288 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fire Emblem-like Tactical RPG</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Emblem of Valor</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body {
+    html, body {
+      height: 100%;
+      overflow: hidden;
       background: #0a0a1a;
-      color: #ffffff;
+      color: #fff;
       font-family: 'Segoe UI', sans-serif;
+    }
+
+    /* ---- Layout shell ---- */
+    #app {
       display: flex;
       flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-      overflow: hidden;
+      height: 100%;
     }
 
+    /* ---- Header ---- */
     header {
-      width: 100%;
+      flex-shrink: 0;
       background: linear-gradient(90deg, #0d1b3e, #1a0d3e);
       border-bottom: 2px solid #334;
-      padding: 6px 16px;
+      padding: 5px 12px;
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 12px;
     }
+    header h1 { font-size: 16px; color: #aac4ff; letter-spacing: 2px; }
+    header .subtitle { font-size: 11px; color: #6688aa; }
 
-    header h1 {
-      font-size: 18px;
-      color: #aac4ff;
-      letter-spacing: 2px;
-      text-shadow: 0 0 10px #4488ff88;
-    }
-
-    header .subtitle {
-      font-size: 12px;
-      color: #6688aa;
-    }
-
-    #game-wrapper {
+    /* ---- Main area ---- */
+    #main {
+      flex: 1;
       display: flex;
       flex-direction: row;
-      gap: 10px;
-      padding: 8px;
-      width: 100%;
-      max-width: 1100px;
+      overflow: hidden;
+      min-height: 0;
     }
 
-    #canvas-container {
-      position: relative;
+    /* ---- Canvas column ---- */
+    #canvas-col {
       flex: 1;
-      cursor: default;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      min-width: 0;
+    }
+
+    #canvas-wrap {
+      position: relative;
+      flex-shrink: 0;
     }
 
     canvas {
       display: block;
       border: 2px solid #334466;
       border-radius: 4px;
-      box-shadow: 0 0 20px rgba(40, 80, 200, 0.3);
+      box-shadow: 0 0 16px rgba(40,80,200,0.3);
       image-rendering: pixelated;
+      touch-action: none;   /* prevent browser scroll/zoom on touch */
+      -webkit-tap-highlight-color: transparent;
     }
 
+    /* Mobile bottom toolbar */
+    #mobile-bar {
+      display: none; /* shown on mobile via media query */
+      flex-shrink: 0;
+      width: 100%;
+      background: rgba(8,12,28,0.97);
+      border-top: 1px solid #334;
+      padding: 6px 10px;
+      gap: 8px;
+      align-items: center;
+    }
+
+    #mobile-bar button {
+      flex: 1;
+      padding: 9px 6px;
+      border-radius: 6px;
+      border: none;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #btn-cancel   { background: #442222; color: #ffaaaa; border: 1px solid #884444; }
+    #btn-endturn  { background: #223366; color: #aaccff; border: 1px solid #446699; }
+    #btn-restart  { background: #223322; color: #aaffaa; border: 1px solid #446644; display: none; }
+
+    #btn-cancel:active  { background: #662222; }
+    #btn-endturn:active { background: #334488; }
+    #btn-restart:active { background: #334433; }
+
+    /* Mobile log strip */
+    #mobile-log {
+      display: none;
+      flex-shrink: 0;
+      background: rgba(5,10,20,0.9);
+      border-top: 1px solid #223;
+      padding: 4px 10px;
+      font-size: 11px;
+      color: #8899aa;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      height: 22px;
+      line-height: 14px;
+    }
+
+    /* ---- Sidebar (desktop only) ---- */
     #sidebar {
-      width: 220px;
+      width: 210px;
+      flex-shrink: 0;
       display: flex;
       flex-direction: column;
       gap: 8px;
+      padding: 8px 8px 8px 0;
+      overflow-y: auto;
     }
 
     .panel {
-      background: rgba(10, 20, 40, 0.95);
+      background: rgba(10,20,40,0.95);
       border: 1px solid #334466;
       border-radius: 6px;
       padding: 10px;
     }
-
     .panel h3 {
-      font-size: 12px;
+      font-size: 11px;
       color: #6688cc;
       text-transform: uppercase;
       letter-spacing: 1px;
-      margin-bottom: 8px;
+      margin-bottom: 7px;
       border-bottom: 1px solid #223;
-      padding-bottom: 4px;
+      padding-bottom: 3px;
     }
 
     .controls-list {
       list-style: none;
-      font-size: 12px;
+      font-size: 11px;
       line-height: 1.9;
       color: #aabbcc;
     }
-
-    .controls-list li span.key {
+    .controls-list .key {
       display: inline-block;
       background: #223;
       border: 1px solid #445;
       border-radius: 3px;
-      padding: 0 5px;
+      padding: 0 4px;
       font-family: monospace;
       color: #ccddff;
-      margin-right: 5px;
-      min-width: 24px;
+      margin-right: 4px;
+      min-width: 22px;
       text-align: center;
     }
 
     .legend-item {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 7px;
       font-size: 11px;
       margin-bottom: 4px;
       color: #bbccdd;
     }
+    .legend-color { width: 13px; height: 13px; border-radius: 3px; flex-shrink: 0; }
 
-    .legend-color {
-      width: 14px;
-      height: 14px;
-      border-radius: 3px;
-      flex-shrink: 0;
-    }
-
-    #log-panel {
-      background: rgba(5, 10, 20, 0.95);
-      border: 1px solid #223344;
-      border-radius: 6px;
-      padding: 8px;
-      max-height: 160px;
-      overflow: hidden;
-    }
-
-    #log-panel h3 {
-      font-size: 11px;
-      color: #556688;
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    #log-list {
-      list-style: none;
-      font-size: 11px;
-      line-height: 1.6;
-      color: #8899aa;
-    }
-
-    #log-list li:last-child {
-      color: #ccddef;
-    }
-
-    .weapon-triangle {
-      font-size: 11px;
-      color: #99aabb;
-      line-height: 1.7;
-    }
-
-    .wt-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-bottom: 2px;
-    }
-
+    .weapon-triangle { font-size: 11px; color: #99aabb; line-height: 1.7; }
+    .wt-row { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
     .wt-sword { color: #4488ff; }
     .wt-axe   { color: #44aa44; }
     .wt-lance { color: #dd4444; }
     .wt-adv   { color: #ffaa44; }
+
+    #log-panel {
+      background: rgba(5,10,20,0.95);
+      border: 1px solid #223344;
+      border-radius: 6px;
+      padding: 8px;
+      flex: 1;
+      min-height: 80px;
+      overflow: hidden;
+    }
+    #log-panel h3 { font-size: 11px; color: #556688; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+    #log-list { list-style: none; font-size: 11px; line-height: 1.6; color: #8899aa; }
+    #log-list li:last-child { color: #ccddef; }
+
+    /* ---- Responsive: mobile (≤ 640px) ---- */
+    @media (max-width: 640px) {
+      header { padding: 4px 10px; }
+      header h1 { font-size: 14px; }
+      #sidebar { display: none; }
+      #main { flex-direction: column; }
+      #canvas-col { align-items: center; }
+      #mobile-bar { display: flex; }
+      #mobile-log { display: block; }
+    }
+
+    @media (max-width: 640px) {
+      #canvas-wrap { padding: 2px; }
+    }
   </style>
 </head>
 <body>
 
-<header>
-  <h1>⚔ Emblem of Valor</h1>
-  <span class="subtitle">Chapter 1: The Beginning</span>
-</header>
+<div id="app">
+  <header>
+    <h1>⚔ Emblem of Valor</h1>
+    <span class="subtitle">Chapter 1: The Beginning</span>
+  </header>
 
-<div id="game-wrapper">
-  <div id="canvas-container">
-    <canvas id="game-canvas"></canvas>
-  </div>
-
-  <div id="sidebar">
-    <!-- Controls -->
-    <div class="panel">
-      <h3>Controls</h3>
-      <ul class="controls-list">
-        <li><span class="key">Click</span> Select / Confirm</li>
-        <li><span class="key">R-click</span> Cancel</li>
-        <li><span class="key">Esc</span> Cancel</li>
-        <li><span class="key">R</span> Restart</li>
-      </ul>
-    </div>
-
-    <!-- Legend -->
-    <div class="panel">
-      <h3>Legend</h3>
-      <div class="legend-item">
-        <div class="legend-color" style="background:rgba(40,120,220,0.6)"></div>
-        Movement range
+  <div id="main">
+    <!-- Canvas column -->
+    <div id="canvas-col">
+      <div id="canvas-wrap">
+        <canvas id="game-canvas"></canvas>
       </div>
-      <div class="legend-item">
-        <div class="legend-color" style="background:rgba(220,60,40,0.5)"></div>
-        Attack range
-      </div>
-      <div class="legend-item">
-        <div class="legend-color" style="background:#2266cc; border-radius:50%"></div>
-        Player unit
-      </div>
-      <div class="legend-item">
-        <div class="legend-color" style="background:#883333; border-radius:50%"></div>
-        Enemy unit
-      </div>
-      <div class="legend-item">
-        <div class="legend-color" style="background:#ffdd00; border-radius:50%"></div>
-        Lord / Boss
+      <!-- Mobile log strip -->
+      <div id="mobile-log">Game started. Good luck!</div>
+      <!-- Mobile action buttons -->
+      <div id="mobile-bar">
+        <button id="btn-cancel"  type="button">✕ Cancel</button>
+        <button id="btn-endturn" type="button">⏩ End Turn</button>
+        <button id="btn-restart" type="button">↺ Restart</button>
       </div>
     </div>
 
-    <!-- Weapon Triangle -->
-    <div class="panel">
-      <h3>Weapon Triangle</h3>
-      <div class="weapon-triangle">
-        <div class="wt-row">
-          <span class="wt-sword">Sword</span>
-          <span class="wt-adv">▶</span>
-          <span class="wt-axe">Axe</span>
+    <!-- Desktop sidebar -->
+    <div id="sidebar">
+      <div class="panel" style="padding: 8px 10px;">
+        <h3>Controls</h3>
+        <ul class="controls-list">
+          <li><span class="key">Tap</span> Select / Confirm</li>
+          <li><span class="key">Hold</span> Cancel (touch)</li>
+          <li><span class="key">R-click</span> Cancel (PC)</li>
+          <li><span class="key">Esc</span> Cancel</li>
+          <li><span class="key">R</span> Restart</li>
+        </ul>
+      </div>
+
+      <div class="panel">
+        <h3>Legend</h3>
+        <div class="legend-item">
+          <div class="legend-color" style="background:rgba(40,120,220,0.6)"></div>
+          Movement range
         </div>
-        <div class="wt-row">
-          <span class="wt-axe">Axe</span>
-          <span class="wt-adv">▶</span>
-          <span class="wt-lance">Lance</span>
+        <div class="legend-item">
+          <div class="legend-color" style="background:rgba(220,60,40,0.5)"></div>
+          Attack range
         </div>
-        <div class="wt-row">
-          <span class="wt-lance">Lance</span>
-          <span class="wt-adv">▶</span>
-          <span class="wt-sword">Sword</span>
+        <div class="legend-item">
+          <div class="legend-color" style="background:#2266cc;border-radius:50%"></div>
+          Player unit
         </div>
-        <div style="margin-top:4px; font-size:10px; color:#667788">
-          Advantage: +1 ATK, +15 Hit
+        <div class="legend-item">
+          <div class="legend-color" style="background:#883333;border-radius:50%"></div>
+          Enemy unit
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background:#ffdd00;border-radius:50%"></div>
+          Lord / Boss
         </div>
       </div>
-    </div>
 
-    <!-- Log -->
-    <div id="log-panel">
-      <h3>Battle Log</h3>
-      <ul id="log-list">
-        <li>Game started. Good luck!</li>
-      </ul>
+      <div class="panel">
+        <h3>Weapon Triangle</h3>
+        <div class="weapon-triangle">
+          <div class="wt-row"><span class="wt-sword">Sword</span><span class="wt-adv">▶</span><span class="wt-axe">Axe</span></div>
+          <div class="wt-row"><span class="wt-axe">Axe</span><span class="wt-adv">▶</span><span class="wt-lance">Lance</span></div>
+          <div class="wt-row"><span class="wt-lance">Lance</span><span class="wt-adv">▶</span><span class="wt-sword">Sword</span></div>
+          <div style="margin-top:4px;font-size:10px;color:#667788">Advantage: +1 ATK, +15 Hit</div>
+        </div>
+      </div>
+
+      <div id="log-panel">
+        <h3>Battle Log</h3>
+        <ul id="log-list">
+          <li>Game started. Good luck!</li>
+        </ul>
+      </div>
     </div>
   </div>
 </div>
@@ -257,34 +291,80 @@
 <script type="module">
   import { Game } from './src/game.js';
 
-  const canvas = document.getElementById('game-canvas');
-  const logList = document.getElementById('log-list');
+  const canvas   = document.getElementById('game-canvas');
+  const logList  = document.getElementById('log-list');
+  const mobileLog = document.getElementById('mobile-log');
+  const btnCancel  = document.getElementById('btn-cancel');
+  const btnEndTurn = document.getElementById('btn-endturn');
+  const btnRestart = document.getElementById('btn-restart');
 
   let game = null;
 
   function startGame() {
     try {
       game = new Game(canvas);
-      // Patch the game's addLog to also update DOM log
+
+      // Patch _addLog to update both sidebar and mobile log strip
       const origAddLog = game._addLog.bind(game);
       game._addLog = function(msg) {
         origAddLog(msg);
         if (msg) {
+          mobileLog.textContent = msg;
           const li = document.createElement('li');
           li.textContent = msg;
           logList.appendChild(li);
-          while (logList.children.length > 12) {
-            logList.removeChild(logList.firstChild);
-          }
-          logList.scrollTop = logList.scrollHeight;
+          while (logList.children.length > 14) logList.removeChild(logList.firstChild);
         }
       };
+
+      // Update mobile button visibility based on game state
+      game._onStateChange = updateButtons;
+      updateButtons();
     } catch (e) {
       console.error('Game init error:', e);
-      canvas.getContext('2d').fillStyle = '#ff4444';
-      canvas.getContext('2d').fillText('Error: ' + e.message, 10, 40);
     }
   }
+
+  function updateButtons() {
+    if (!game) return;
+    const s = game.state;
+    const isEnd = s === 'VICTORY' || s === 'GAME_OVER';
+    const isEnemy = s === 'ENEMY_PHASE';
+
+    btnCancel.disabled  = isEnd || isEnemy || s === 'PLAYER_PHASE';
+    btnEndTurn.style.display  = isEnd ? 'none' : '';
+    btnRestart.style.display  = isEnd ? '' : 'none';
+    btnEndTurn.disabled = isEnemy || isEnd;
+    btnCancel.style.opacity  = btnCancel.disabled  ? '0.35' : '1';
+    btnEndTurn.style.opacity = btnEndTurn.disabled ? '0.35' : '1';
+  }
+
+  btnCancel.addEventListener('click', () => {
+    if (game) { game._onCancel(); updateButtons(); }
+  });
+
+  btnEndTurn.addEventListener('click', () => {
+    if (game) {
+      const s = game.state;
+      if (s === 'PLAYER_PHASE' || s === 'UNIT_SELECTED') {
+        game._startEnemyPhase();
+        updateButtons();
+      }
+    }
+  });
+
+  btnRestart.addEventListener('click', () => {
+    if (game) { game._restart(); updateButtons(); }
+  });
+
+  // Re-init on orientation/resize
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (game) { game._onResize(); updateButtons(); }
+    }, 200);
+  });
 
   startGame();
 </script>

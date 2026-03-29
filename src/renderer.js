@@ -3,8 +3,9 @@
 // ============================================================
 import { TERRAIN, WEAPON } from './data.js';
 
-export const TILE_SIZE = 48;
-const UNIT_RADIUS = 16;
+// Dynamically updated by resize() — importers always read the current value
+export let TILE_SIZE = 48;
+let UNIT_RADIUS = 16;
 
 export class Renderer {
   constructor(canvas) {
@@ -15,8 +16,21 @@ export class Renderer {
   }
 
   resize(mapWidth, mapHeight) {
-    this.canvas.width  = Math.min(window.innerWidth,  mapWidth  * TILE_SIZE);
-    this.canvas.height = Math.min(window.innerHeight - 120, mapHeight * TILE_SIZE);
+    // On mobile the sidebar is hidden, so use full viewport width
+    const isMobile = window.innerWidth < 640;
+    const availW = isMobile
+      ? window.innerWidth - 4
+      : Math.min(window.innerWidth - 240, mapWidth * 48);
+    const availH = window.innerHeight - (isMobile ? 90 : 80);
+
+    // Compute tile size to fit both width and height
+    const tsByW = Math.floor(availW / mapWidth);
+    const tsByH = Math.floor(availH / mapHeight);
+    TILE_SIZE   = Math.max(28, Math.min(48, tsByW, tsByH));
+    UNIT_RADIUS = Math.max(10, Math.round(TILE_SIZE * 0.33));
+
+    this.canvas.width  = mapWidth  * TILE_SIZE;
+    this.canvas.height = mapHeight * TILE_SIZE;
   }
 
   // Convert tile coords to screen coords

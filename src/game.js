@@ -60,10 +60,20 @@ export class Game {
     // End Turn button rect
     this.endTurnBtn = { x: 0, y: 0, w: 90, h: 30 };
 
+    // Optional callback fired whenever state changes (used by HTML buttons)
+    this._onStateChange = null;
+
     this._setupInput();
     this._initChapter(CHAPTER_1);
     this._startPlayerPhase();
     this._loop();
+  }
+
+  // Called by index.html on window resize / orientation change
+  _onResize() {
+    if (!this.map) return;
+    this.renderer.resize(CHAPTER_1.width, CHAPTER_1.height);
+    this._updateEndTurnBtn();
   }
 
   // ---- Initialization ----
@@ -105,6 +115,7 @@ export class Game {
     this.phaseBannerAlpha = 1;
     this.phaseBannerTimer = 0;
     this._addLog(`Turn ${this.turn} — Player Phase`);
+    if (this._onStateChange) this._onStateChange();
   }
 
   _startEnemyPhase() {
@@ -117,6 +128,7 @@ export class Game {
     this.phaseBannerAlpha = 1;
     this.phaseBannerTimer = 0;
     this._addLog('Enemy Phase');
+    if (this._onStateChange) this._onStateChange();
 
     // Run AI after a short delay
     setTimeout(() => {
@@ -129,6 +141,7 @@ export class Game {
         this.turn++;
         this._startPlayerPhase();
       }
+      if (this._onStateChange) this._onStateChange();
     }, 800);
   }
 
@@ -137,11 +150,13 @@ export class Game {
   _checkWinLoss() {
     if (this.map.enemyUnits.length === 0) {
       this.state = STATE.VICTORY;
+      if (this._onStateChange) this._onStateChange();
       return true;
     }
     const lord = this.map.playerUnits.find(u => u.isLord);
     if (!lord || !lord.alive) {
       this.state = STATE.GAME_OVER;
+      if (this._onStateChange) this._onStateChange();
       return true;
     }
     return false;
@@ -207,6 +222,7 @@ export class Game {
         this._handleHealSelectClick(tx, ty);
         break;
     }
+    if (this._onStateChange) this._onStateChange();
   }
 
   _onCancel() {
@@ -238,6 +254,7 @@ export class Game {
         this.state = STATE.UNIT_MOVED;
         break;
     }
+    if (this._onStateChange) this._onStateChange();
   }
 
   // ---- State handlers ----
@@ -449,6 +466,7 @@ export class Game {
     this.attackRange   = null;
     this.combatPreview = null;
     this.state = STATE.PLAYER_PHASE;
+    if (this._onStateChange) this._onStateChange();
 
     // Auto-end turn if all player units have acted
     const pending = this.map.playerUnits.filter(u => !u.acted);
