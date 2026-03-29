@@ -9,6 +9,7 @@
 
     html, body {
       height: 100%;
+      height: 100dvh; /* dynamic viewport height — hides mobile address bar */
       overflow: hidden;
       background: #0a0a1a;
       color: #fff;
@@ -20,6 +21,7 @@
       display: flex;
       flex-direction: column;
       height: 100%;
+      height: 100dvh;
     }
 
     /* ---- Header ---- */
@@ -51,20 +53,27 @@
       flex-direction: column;
       align-items: flex-start;
       min-width: 0;
+      min-height: 0; /* allow flex children to shrink below content size */
     }
 
+    /* canvas-wrap must flex-grow to fill remaining space after log/buttons */
     #canvas-wrap {
-      position: relative;
-      flex-shrink: 0;
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      align-items: flex-start;
+      overflow: hidden;
     }
 
     canvas {
       display: block;
+      max-width: 100%;  /* never overflow the wrap horizontally */
+      max-height: 100%; /* never overflow the wrap vertically */
       border: 2px solid #334466;
       border-radius: 4px;
       box-shadow: 0 0 16px rgba(40,80,200,0.3);
       image-rendering: pixelated;
-      touch-action: none;   /* prevent browser scroll/zoom on touch */
+      touch-action: none;
       -webkit-tap-highlight-color: transparent;
     }
 

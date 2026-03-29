@@ -64,8 +64,13 @@ export class Game {
     this._onStateChange = null;
 
     this._setupInput();
-    this._initChapter(CHAPTER_1);
-    this._startPlayerPhase();
+
+    // Defer init by one animation frame so CSS layout has settled.
+    // This ensures canvas-wrap.clientHeight is accurate (especially on mobile).
+    requestAnimationFrame(() => {
+      this._initChapter(CHAPTER_1);
+      this._startPlayerPhase();
+    });
     this._loop();
   }
 

@@ -16,18 +16,18 @@ export class Renderer {
   }
 
   resize(mapWidth, mapHeight) {
-    // On mobile the sidebar is hidden, so use full viewport width
-    const isMobile = window.innerWidth < 640;
-    const availW = isMobile
-      ? window.innerWidth - 4
-      : Math.min(window.innerWidth - 240, mapWidth * 48);
-    const availH = window.innerHeight - (isMobile ? 90 : 80);
+    // Read actual available space from the canvas's parent container.
+    // This is more reliable than window.innerHeight on mobile because it
+    // accounts for the real rendered heights of header, log strip, and buttons.
+    const wrap = this.canvas.parentElement;
+    const availW = Math.max(160, (wrap ? wrap.clientWidth  : window.innerWidth)  - 2);
+    const availH = Math.max(160, (wrap ? wrap.clientHeight : window.innerHeight - 120) - 2);
 
     // Compute tile size to fit both width and height
     const tsByW = Math.floor(availW / mapWidth);
     const tsByH = Math.floor(availH / mapHeight);
-    TILE_SIZE   = Math.max(28, Math.min(48, tsByW, tsByH));
-    UNIT_RADIUS = Math.max(10, Math.round(TILE_SIZE * 0.33));
+    TILE_SIZE   = Math.max(24, Math.min(48, tsByW, tsByH));
+    UNIT_RADIUS = Math.max(8, Math.round(TILE_SIZE * 0.33));
 
     this.canvas.width  = mapWidth  * TILE_SIZE;
     this.canvas.height = mapHeight * TILE_SIZE;
