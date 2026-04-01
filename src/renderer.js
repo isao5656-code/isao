@@ -17,11 +17,13 @@ export class Renderer {
 
   resize(mapWidth, mapHeight) {
     // Read actual available space from the canvas's parent container.
-    // This is more reliable than window.innerHeight on mobile because it
-    // accounts for the real rendered heights of header, log strip, and buttons.
+    // clientWidth/clientHeight include padding, so subtract it explicitly.
     const wrap = this.canvas.parentElement;
-    const availW = Math.max(160, (wrap ? wrap.clientWidth  : window.innerWidth)  - 2);
-    const availH = Math.max(160, (wrap ? wrap.clientHeight : window.innerHeight - 120) - 2);
+    const cs   = wrap ? window.getComputedStyle(wrap) : null;
+    const padH = cs ? (parseFloat(cs.paddingLeft  || 0) + parseFloat(cs.paddingRight  || 0)) : 0;
+    const padV = cs ? (parseFloat(cs.paddingTop   || 0) + parseFloat(cs.paddingBottom || 0)) : 0;
+    const availW = Math.max(160, (wrap ? wrap.clientWidth  - padH : window.innerWidth)  - 2);
+    const availH = Math.max(160, (wrap ? wrap.clientHeight - padV : window.innerHeight - 120) - 2);
 
     // Compute tile size to fit both width and height
     const tsByW = Math.floor(availW / mapWidth);

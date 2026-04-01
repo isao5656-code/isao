@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Emblem of Valor</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -22,6 +22,8 @@
       flex-direction: column;
       height: 100%;
       height: 100dvh;
+      /* Push content above system navigation bar on Android/iOS */
+      padding-bottom: env(safe-area-inset-bottom, 0px);
     }
 
     /* ---- Header ---- */
