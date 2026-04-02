@@ -362,9 +362,11 @@ export class Game {
   // ---- Click handler ----
 
   _onClick(tx, ty, sx, sy) {
-    if (this.state === STATE.TITLE)        { this._handleTitleClick(sx, sy); return; }
+    if (this.state === STATE.TITLE)         { this._handleTitleClick(sx, sy); return; }
     if (this.state === STATE.COMBAT_RESULT) { this._dismissCombatResult(); return; }
-    if (this.state === STATE.VICTORY || this.state === STATE.GAME_OVER || this.state === STATE.CHAPTER_CLEAR) return;
+    // Canvas tap advances end-of-chapter / end-of-game screens
+    if (this.state === STATE.CHAPTER_CLEAR) { this._advanceChapter(); this._startPlayerPhase(); return; }
+    if (this.state === STATE.VICTORY || this.state === STATE.GAME_OVER) { this._restart(); return; }
     if (this.state === STATE.ENEMY_PHASE) return;
 
     // Check End Turn button
@@ -559,11 +561,28 @@ export class Game {
           }
         }
         this.attackRange = atkSet;
-        this.state = STATE.ATTACK_SELECT;
+        // If only one enemy in range, skip selection and go straight to preview
+        const autoTargets = this._getAttackTargets(this.selectedUnit);
+        if (autoTargets.length === 1) {
+          this.combatTarget  = autoTargets[0];
+          this.combatPreview = buildCombatPreview(this.selectedUnit, autoTargets[0], this.map);
+          this.state = STATE.COMBAT_PREVIEW;
+        } else {
+          this.state = STATE.ATTACK_SELECT;
+        }
         break;
       }
       case 'Heal': {
-        this.state = STATE.HEAL_SELECT;
+        // If only one heal target, execute immediately
+        const healTargets = this._getHealTargets(this.selectedUnit);
+        if (healTargets.length === 1) {
+          const log = executeHeal(this.selectedUnit, healTargets[0]);
+          this.logMessages.push(...log);
+          this.selectedUnit.attacked = true;
+          this._finishUnitTurn();
+        } else {
+          this.state = STATE.HEAL_SELECT;
+        }
         break;
       }
       case 'Wait': {
@@ -576,16 +595,12 @@ export class Game {
 
   _handleAttackSelectClick(tx, ty) {
     const key = `${tx},${ty}`;
-    if (!this.attackRange || !this.attackRange.has(key)) {
-      this._onCancel();
-      return;
-    }
+    // Tapping outside attack range is a no-op on mobile (don't cancel);
+    // explicit cancel (long-press / Esc / Cancel button) still works.
+    if (!this.attackRange || !this.attackRange.has(key)) return;
 
     const target = this.map.getUnitAt(tx, ty);
-    if (!target || target.team === this.selectedUnit.team) {
-      this._onCancel();
-      return;
-    }
+    if (!target || target.team === this.selectedUnit.team) return;
 
     // Build combat preview
     this.combatTarget  = target;
@@ -623,15 +638,10 @@ export class Game {
 
   _handleHealSelectClick(tx, ty) {
     const target = this.map.getUnitAt(tx, ty);
-    if (!target || target.team !== this.selectedUnit.team || target.hp >= target.maxHp) {
-      this._onCancel();
-      return;
-    }
+    // Tapping invalid tile is a no-op; use Cancel button/long-press to go back
+    if (!target || target.team !== this.selectedUnit.team || target.hp >= target.maxHp) return;
     const dist = Math.abs(this.selectedUnit.x - target.x) + Math.abs(this.selectedUnit.y - target.y);
-    if (dist > 1) { // staff range = 1 tile (adjacent or self)
-      this._onCancel();
-      return;
-    }
+    if (dist > 1) return;
 
     const log = executeHeal(this.selectedUnit, target);
     this.logMessages.push(...log);

@@ -359,7 +359,7 @@
 
     btnCancel.disabled = isEnd || isClear || isEnemy || isResult || s === 'PLAYER_PHASE';
     btnEndTurn.style.display = (isEnd || isClear) ? 'none' : '';
-    btnRestart.style.display = (isEnd || isClear) ? '' : 'none';
+    btnRestart.style.display = (isEnd || isClear) ? 'block' : 'none';
     btnRestart.textContent   = isClear ? '▶ Next Chapter' : '↺ Restart';
 
     // Enemy phase → repurpose End Turn button as Skip
