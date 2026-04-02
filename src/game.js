@@ -18,6 +18,7 @@ const STATE = {
   COMBAT_PREVIEW:  'COMBAT_PREVIEW',
   HEAL_SELECT:     'HEAL_SELECT',
   ENEMY_PHASE:     'ENEMY_PHASE',
+  COMBAT_RESULT:   'COMBAT_RESULT',
   CHAPTER_CLEAR:   'CHAPTER_CLEAR',
   VICTORY:         'VICTORY',
   GAME_OVER:       'GAME_OVER',
@@ -67,6 +68,12 @@ export class Game {
     this._onChapterChange = null;
     // Current chapter index
     this.chapterIndex = 0;
+    // Enemy turn animation
+    this.enemyActingUnit = null;
+    this.enemyAnimQueue  = [];
+    // Combat result overlay
+    this.combatResultLog   = null;
+    this.combatResultTimer = 0;
 
     this._setupInput();
 
@@ -148,6 +155,16 @@ export class Game {
     this.moveRange     = null;
     this.attackRange   = null;
     this.combatPreview = null;
+    this.enemyActingUnit = null;
+
+    // Village HP recovery: units standing on a village tile recover 20% max HP
+    for (const u of this.map.playerUnits) {
+      if (this.map.getTerrainKey(u.x, u.y) === 'village' && u.hp < u.maxHp) {
+        const heal = Math.max(1, Math.floor(u.maxHp * 0.2));
+        u.heal(heal);
+        this._addLog(`${u.name} recovers ${heal} HP at the village.`);
+      }
+    }
 
     this.phaseBannerAlpha = 1;
     this.phaseBannerTimer = 0;
@@ -157,29 +174,60 @@ export class Game {
 
   _startEnemyPhase() {
     this.state = STATE.ENEMY_PHASE;
-    this.selectedUnit  = null;
-    this.moveRange     = null;
-    this.attackRange   = null;
-    this.combatPreview = null;
+    this.selectedUnit    = null;
+    this.moveRange       = null;
+    this.attackRange     = null;
+    this.combatPreview   = null;
+    this.enemyActingUnit = null;
+    this.enemyAnimQueue  = [];
 
     this.phaseBannerAlpha = 1;
     this.phaseBannerTimer = 0;
     this._addLog('Enemy Phase');
     if (this._onStateChange) this._onStateChange();
 
-    // Run AI after a short delay
+    // Run AI (all moves/attacks applied immediately), then animate results
     setTimeout(() => {
       const actions = runEnemyAI(this.map);
-      for (const a of actions) {
-        if (a.log) this.logMessages.push(...a.log.slice(-2));
-      }
+      this.enemyAnimQueue = actions.map(a => ({
+        unit: a.enemy, log: a.log || [],
+      }));
+      this._playNextEnemyAction();
+    }, 800);
+  }
+
+  _playNextEnemyAction() {
+    if (this.state !== STATE.ENEMY_PHASE) return;
+    if (this.enemyAnimQueue.length === 0) {
+      this.enemyActingUnit = null;
       this._checkWinLoss();
       if (this.state === STATE.ENEMY_PHASE) {
         this.turn++;
         this._startPlayerPhase();
       }
       if (this._onStateChange) this._onStateChange();
-    }, 800);
+      return;
+    }
+    const action = this.enemyAnimQueue.shift();
+    this.enemyActingUnit = action.unit.alive ? action.unit : null;
+    for (const line of action.log) this._addLog(line);
+    if (this._onStateChange) this._onStateChange();
+    setTimeout(() => this._playNextEnemyAction(), 550);
+  }
+
+  // Skip remaining enemy animations and finish the phase immediately
+  _skipEnemyAnim() {
+    if (this.state !== STATE.ENEMY_PHASE) return;
+    while (this.enemyAnimQueue.length > 0) {
+      for (const line of this.enemyAnimQueue.shift().log) this._addLog(line);
+    }
+    this.enemyActingUnit = null;
+    this._checkWinLoss();
+    if (this.state === STATE.ENEMY_PHASE) {
+      this.turn++;
+      this._startPlayerPhase();
+    }
+    if (this._onStateChange) this._onStateChange();
   }
 
   // ---- Win/Loss check ----
@@ -220,6 +268,10 @@ export class Game {
           this._startPlayerPhase();
         }
       }
+      if (key === 's' || key === 'S') {
+        if (this.state === STATE.ENEMY_PHASE) this._skipEnemyAnim();
+        if (this.state === STATE.COMBAT_RESULT) this._dismissCombatResult();
+      }
     });
   }
 
@@ -232,6 +284,7 @@ export class Game {
   // ---- Click handler ----
 
   _onClick(tx, ty, sx, sy) {
+    if (this.state === STATE.COMBAT_RESULT) { this._dismissCombatResult(); return; }
     if (this.state === STATE.VICTORY || this.state === STATE.GAME_OVER || this.state === STATE.CHAPTER_CLEAR) return;
     if (this.state === STATE.ENEMY_PHASE) return;
 
@@ -464,22 +517,27 @@ export class Game {
   _confirmCombat() {
     if (!this.combatTarget || !this.selectedUnit) return;
 
-    const log = executeCombat(this.selectedUnit, this.combatTarget, this.map);
-    this.logMessages.push(...log);
-    this._addLog(log[log.length - 1] || '');
+    const attacker = this.selectedUnit;
+    const log = executeCombat(attacker, this.combatTarget, this.map);
 
     // Remove dead units
-    if (!this.combatTarget.alive) {
-      this.map.removeUnit(this.combatTarget);
-    }
-    if (!this.selectedUnit.alive) {
-      this.map.removeUnit(this.selectedUnit);
-    }
+    if (!this.combatTarget.alive) this.map.removeUnit(this.combatTarget);
+    if (!attacker.alive)         this.map.removeUnit(attacker);
 
     this.combatPreview = null;
     this.combatTarget  = null;
-    this.selectedUnit.attacked = true;
+    attacker.attacked  = true;
 
+    // Show result overlay (click or 3 s to dismiss)
+    this.combatResultLog   = log;
+    this.combatResultTimer = 0;
+    this.state = STATE.COMBAT_RESULT;
+    if (this._onStateChange) this._onStateChange();
+  }
+
+  _dismissCombatResult() {
+    this.combatResultLog   = null;
+    this.combatResultTimer = 0;
     if (this._checkWinLoss()) return;
     this._finishUnitTurn();
   }
@@ -533,6 +591,12 @@ export class Game {
       if (this.phaseBannerTimer > 90) {
         this.phaseBannerAlpha = Math.max(0, this.phaseBannerAlpha - 0.02);
       }
+    }
+
+    // Auto-dismiss combat result after ~3 s
+    if (this.state === STATE.COMBAT_RESULT) {
+      this.combatResultTimer++;
+      if (this.combatResultTimer > 180) this._dismissCombatResult();
     }
 
     this._render();
@@ -619,12 +683,22 @@ export class Game {
       r.drawPhaseBanner(phase, this.phaseBannerAlpha);
     }
 
-    // Log bar (bottom)
+    // Enemy acting highlight
+    if (state === STATE.ENEMY_PHASE && this.enemyActingUnit && this.enemyActingUnit.alive) {
+      r.drawEnemyActingHighlight(this.enemyActingUnit, this.pulse);
+    }
+
+    // Log bar (bottom) — hint "S:Skip" during enemy phase
     const lastMsg = this.logMessages[this.logMessages.length - 1] || '';
-    r.drawInfoBar(
-      `Turn ${this.turn}  |  ${lastMsg}`,
-      0, this.canvas.height - 20, this.canvas.width, 20
-    );
+    const infoText = state === STATE.ENEMY_PHASE
+      ? `Turn ${this.turn}  |  Enemy Phase  |  S / Skip button to skip`
+      : `Turn ${this.turn}  |  ${lastMsg}`;
+    r.drawInfoBar(infoText, 0, this.canvas.height - 20, this.canvas.width, 20);
+
+    // Combat result overlay
+    if (state === STATE.COMBAT_RESULT && this.combatResultLog) {
+      r.drawCombatResult(this.combatResultLog, this.combatResultTimer);
+    }
 
     // End screens
     if (state === STATE.CHAPTER_CLEAR) r.drawChapterClearScreen(CHAPTERS[this.chapterIndex + 1]);

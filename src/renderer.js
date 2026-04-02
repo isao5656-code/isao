@@ -522,6 +522,68 @@ export class Renderer {
     ctx.fillText(text, x + 10, y + h / 2);
   }
 
+  // Draw enemy-acting highlight (pulsing red border + "!" above unit)
+  drawEnemyActingHighlight(unit, pulse) {
+    const ctx = this.ctx;
+    const { x, y } = this.tileToScreen(unit.x, unit.y);
+    const alpha = 0.55 + 0.45 * Math.sin(pulse * 3);
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = '#ff3333';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(x - 2, y - 2, TILE_SIZE + 4, TILE_SIZE + 4);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#ff6666';
+    ctx.font = `bold ${Math.max(10, TILE_SIZE * 0.3)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('!', x + TILE_SIZE / 2, y - 1);
+  }
+
+  // Draw combat-result overlay
+  drawCombatResult(logLines, timer) {
+    const ctx = this.ctx;
+    const cw = this.canvas.width;
+    const ch = this.canvas.height;
+    const w  = Math.min(320, cw - 20);
+    const lineH = 20;
+    const h  = logLines.length * lineH + 52;
+    const px = (cw - w) / 2;
+    const py = Math.max(4, (ch - h) / 2);
+
+    ctx.fillStyle = 'rgba(5, 10, 30, 0.94)';
+    this._roundRect(ctx, px, py, w, h, 8);
+    ctx.fill();
+    ctx.strokeStyle = '#8844cc';
+    ctx.lineWidth = 2;
+    this._roundRect(ctx, px, py, w, h, 8);
+    ctx.stroke();
+
+    ctx.fillStyle = '#ddaaff';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText('⚔ Battle Result', px + w / 2, py + 8);
+
+    for (let i = 0; i < logLines.length; i++) {
+      const line = logLines[i];
+      ctx.fillStyle = line.includes('crits') ? '#ffaa44'
+        : line.includes('misses')            ? '#888888'
+        : line.includes('EXP')               ? '#88ddff'
+        : '#cccccc';
+      ctx.font = '12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(line, px + w / 2, py + 28 + i * lineH);
+    }
+
+    // Fade-out tap hint after 2 s
+    const alpha = timer > 90 ? Math.max(0.15, 1 - (timer - 90) / 90) : 1;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#556677';
+    ctx.font = '11px sans-serif';
+    ctx.fillText('Tap / S to continue', px + w / 2, py + h - 14);
+    ctx.globalAlpha = 1;
+  }
+
   // Draw chapter-clear overlay
   drawChapterClearScreen(nextChapter) {
     const ctx = this.ctx;

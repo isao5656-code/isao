@@ -331,6 +331,10 @@
 
       // Update mobile button visibility based on game state
       game._onStateChange = updateButtons;
+      // Update chapter subtitle in header
+      game._onChapterChange = (ch) => {
+        document.getElementById('chapter-subtitle').textContent = ch.name;
+      };
       updateButtons();
     } catch (e) {
       console.error('Game init error:', e);
@@ -340,13 +344,25 @@
   function updateButtons() {
     if (!game) return;
     const s = game.state;
-    const isEnd = s === 'VICTORY' || s === 'GAME_OVER';
-    const isEnemy = s === 'ENEMY_PHASE';
+    const isEnd    = s === 'VICTORY' || s === 'GAME_OVER';
+    const isClear  = s === 'CHAPTER_CLEAR';
+    const isEnemy  = s === 'ENEMY_PHASE';
+    const isResult = s === 'COMBAT_RESULT';
 
-    btnCancel.disabled  = isEnd || isEnemy || s === 'PLAYER_PHASE';
-    btnEndTurn.style.display  = isEnd ? 'none' : '';
-    btnRestart.style.display  = isEnd ? '' : 'none';
-    btnEndTurn.disabled = isEnemy || isEnd;
+    btnCancel.disabled = isEnd || isClear || isEnemy || isResult || s === 'PLAYER_PHASE';
+    btnEndTurn.style.display = (isEnd || isClear) ? 'none' : '';
+    btnRestart.style.display = (isEnd || isClear) ? '' : 'none';
+    btnRestart.textContent   = isClear ? '▶ Next Chapter' : '↺ Restart';
+
+    // Enemy phase → repurpose End Turn button as Skip
+    if (isEnemy) {
+      btnEndTurn.disabled    = false;
+      btnEndTurn.textContent = '⏭ Skip';
+    } else {
+      btnEndTurn.disabled    = isEnd || isResult;
+      btnEndTurn.textContent = '⏩ End Turn';
+    }
+
     btnCancel.style.opacity  = btnCancel.disabled  ? '0.35' : '1';
     btnEndTurn.style.opacity = btnEndTurn.disabled ? '0.35' : '1';
   }
@@ -356,17 +372,23 @@
   });
 
   btnEndTurn.addEventListener('click', () => {
-    if (game) {
-      const s = game.state;
-      if (s === 'PLAYER_PHASE' || s === 'UNIT_SELECTED') {
-        game._startEnemyPhase();
-        updateButtons();
-      }
+    if (!game) return;
+    const s = game.state;
+    if (s === 'ENEMY_PHASE') {
+      game._skipEnemyAnim(); updateButtons();
+    } else if (s === 'PLAYER_PHASE' || s === 'UNIT_SELECTED') {
+      game._startEnemyPhase(); updateButtons();
     }
   });
 
   btnRestart.addEventListener('click', () => {
-    if (game) { game._restart(); updateButtons(); }
+    if (!game) return;
+    if (game.state === 'CHAPTER_CLEAR') {
+      game._advanceChapter(); game._startPlayerPhase();
+    } else {
+      game._restart();
+    }
+    updateButtons();
   });
 
   // Re-init on orientation/resize
