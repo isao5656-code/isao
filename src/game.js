@@ -11,6 +11,7 @@ import { InputHandler } from './input.js';
 
 // Game states
 const STATE = {
+  TITLE:           'TITLE',
   PLAYER_PHASE:    'PLAYER_PHASE',
   UNIT_SELECTED:   'UNIT_SELECTED',
   UNIT_MOVED:      'UNIT_MOVED',
@@ -77,20 +78,96 @@ export class Game {
 
     this._setupInput();
 
-    // Defer init by two animation frames so CSS layout has fully settled.
+    // Show title screen after layout settles
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      this._initChapterWith(CHAPTERS[0], {});
-      this._startPlayerPhase();
+      this.renderer.resizeTitle();
+      this.state = STATE.TITLE;
+      if (this._onStateChange) this._onStateChange();
     }));
     this._loop();
   }
 
   // Called by index.html on window resize / orientation change
   _onResize() {
+    if (this.state === STATE.TITLE) { this.renderer.resizeTitle(); return; }
     if (!this.map) return;
     const ch = CHAPTERS[this.chapterIndex];
     this.renderer.resize(ch.width, ch.height);
     this._updateEndTurnBtn();
+  }
+
+  // ---- Title screen / Save / Load ----
+
+  _hasSave() {
+    return !!localStorage.getItem('emblem_save');
+  }
+
+  _saveGame() {
+    if (!this.map) return;
+    const chapter = CHAPTERS[this.chapterIndex];
+    const deadEnemyIds = chapter.enemyUnits
+      .filter(ed => !this.map.units.find(u => u.id === ed.id && u.team === 'enemy' && u.alive))
+      .map(ed => ed.id);
+    const save = {
+      chapterIndex: this.chapterIndex,
+      turn: this.turn,
+      playerUnits: this.map.playerUnits.map(u => ({
+        id: u.id, x: u.x, y: u.y,
+        level: u.level, exp: u.exp, hp: u.hp,
+        maxHp: u.maxHp, atk: u.atk, def: u.def, spd: u.spd, res: u.res,
+      })),
+      deadEnemyIds,
+    };
+    localStorage.setItem('emblem_save', JSON.stringify(save));
+  }
+
+  _loadSaveData() {
+    try {
+      const data = JSON.parse(localStorage.getItem('emblem_save') || 'null');
+      if (!data) return false;
+      const savedStats = {};
+      for (const u of data.playerUnits) savedStats[u.id] = u;
+
+      this.chapterIndex = data.chapterIndex || 0;
+      this._initChapterWith(CHAPTERS[this.chapterIndex], savedStats);
+
+      // Restore current positions and HP
+      for (const u of this.map.playerUnits) {
+        const s = savedStats[u.id];
+        if (s) { u.x = s.x; u.y = s.y; u.hp = Math.min(s.hp, u.maxHp); }
+      }
+      // Remove already-defeated enemies
+      for (const id of (data.deadEnemyIds || [])) {
+        const e = this.map.units.find(u => u.id === id && u.team === 'enemy');
+        if (e) this.map.removeUnit(e);
+      }
+      this.turn = data.turn || 1;
+      return true;
+    } catch (e) {
+      console.error('Load error:', e);
+      return false;
+    }
+  }
+
+  _handleTitleClick(sx, sy) {
+    const cx = this.canvas.width / 2;
+    const cy = this.canvas.height / 2;
+    const bw = 200, bh = 44;
+    // New Game button
+    if (sx >= cx - bw / 2 && sx <= cx + bw / 2 && sy >= cy && sy <= cy + bh) {
+      this.chapterIndex = 0;
+      this._initChapterWith(CHAPTERS[0], {});
+      this._startPlayerPhase();
+      return;
+    }
+    // Continue button
+    if (this._hasSave() && sx >= cx - bw / 2 && sx <= cx + bw / 2 && sy >= cy + 60 && sy <= cy + 60 + bh) {
+      if (!this._loadSaveData()) {
+        this.chapterIndex = 0;
+        this._initChapterWith(CHAPTERS[0], {});
+      }
+      this._startPlayerPhase();
+    }
   }
 
   // ---- Initialization ----
@@ -169,6 +246,7 @@ export class Game {
     this.phaseBannerAlpha = 1;
     this.phaseBannerTimer = 0;
     this._addLog(`Turn ${this.turn} — Player Phase`);
+    this._saveGame(); // auto-save at each player phase start
     if (this._onStateChange) this._onStateChange();
   }
 
@@ -284,6 +362,7 @@ export class Game {
   // ---- Click handler ----
 
   _onClick(tx, ty, sx, sy) {
+    if (this.state === STATE.TITLE)        { this._handleTitleClick(sx, sy); return; }
     if (this.state === STATE.COMBAT_RESULT) { this._dismissCombatResult(); return; }
     if (this.state === STATE.VICTORY || this.state === STATE.GAME_OVER || this.state === STATE.CHAPTER_CLEAR) return;
     if (this.state === STATE.ENEMY_PHASE) return;
@@ -608,6 +687,12 @@ export class Game {
     const state = this.state;
 
     r.clear();
+
+    // Title screen
+    if (state === STATE.TITLE) {
+      r.drawTitleScreen(this._hasSave());
+      return;
+    }
 
     if (!this.map) return;
 

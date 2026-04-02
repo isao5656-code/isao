@@ -344,10 +344,18 @@
   function updateButtons() {
     if (!game) return;
     const s = game.state;
+    const isTitle  = s === 'TITLE';
     const isEnd    = s === 'VICTORY' || s === 'GAME_OVER';
     const isClear  = s === 'CHAPTER_CLEAR';
     const isEnemy  = s === 'ENEMY_PHASE';
     const isResult = s === 'COMBAT_RESULT';
+
+    // Hide all game buttons on title screen
+    if (isTitle) {
+      btnCancel.style.display = btnEndTurn.style.display = btnRestart.style.display = 'none';
+      return;
+    }
+    btnCancel.style.display = btnEndTurn.style.display = '';
 
     btnCancel.disabled = isEnd || isClear || isEnemy || isResult || s === 'PLAYER_PHASE';
     btnEndTurn.style.display = (isEnd || isClear) ? 'none' : '';

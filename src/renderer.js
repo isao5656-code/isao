@@ -15,6 +15,15 @@ export class Renderer {
     this.camY   = 0;
   }
 
+  resizeTitle() {
+    const wrap = this.canvas.parentElement;
+    const cs   = wrap ? window.getComputedStyle(wrap) : null;
+    const padH = cs ? (parseFloat(cs.paddingLeft  || 0) + parseFloat(cs.paddingRight  || 0)) : 0;
+    const padV = cs ? (parseFloat(cs.paddingTop   || 0) + parseFloat(cs.paddingBottom || 0)) : 0;
+    this.canvas.width  = Math.max(320, (wrap ? wrap.clientWidth  - padH : window.innerWidth)  - 2);
+    this.canvas.height = Math.max(240, (wrap ? wrap.clientHeight - padV : window.innerHeight - 120) - 2);
+  }
+
   resize(mapWidth, mapHeight) {
     // Read actual available space from the canvas's parent container.
     // clientWidth/clientHeight include padding, so subtract it explicitly.
@@ -520,6 +529,65 @@ export class Renderer {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, x + 10, y + h / 2);
+  }
+
+  // Draw title screen
+  drawTitleScreen(hasSave) {
+    const ctx = this.ctx;
+    const cw = this.canvas.width;
+    const ch = this.canvas.height;
+
+    // Background
+    const grad = ctx.createLinearGradient(0, 0, 0, ch);
+    grad.addColorStop(0, '#050518');
+    grad.addColorStop(1, '#18051a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, cw, ch);
+
+    // Stars
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    for (let i = 0; i < 70; i++) {
+      ctx.fillRect((i * 137.5) % cw, (i * 89.3) % (ch * 0.75), 1.5, 1.5);
+    }
+
+    // Title
+    ctx.fillStyle = '#aac4ff';
+    ctx.font = `bold ${Math.min(42, cw / 12)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('⚔ Emblem of Valor', cw / 2, ch * 0.28);
+
+    ctx.fillStyle = '#667799';
+    ctx.font = `${Math.min(15, cw / 28)}px sans-serif`;
+    ctx.fillText('A Fire Emblem-style Tactical RPG  ·  3 Chapters', cw / 2, ch * 0.28 + 44);
+
+    // Buttons
+    const bw = Math.min(200, cw * 0.55), bh = 44;
+    const cx = cw / 2, by = ch * 0.5;
+
+    const drawBtn = (label, x, y, fill, stroke, textColor) => {
+      ctx.fillStyle = fill;
+      this._roundRect(ctx, x - bw / 2, y, bw, bh, 8);
+      ctx.fill();
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = 2;
+      this._roundRect(ctx, x - bw / 2, y, bw, bh, 8);
+      ctx.stroke();
+      ctx.fillStyle = textColor;
+      ctx.font = `bold ${Math.min(17, cw / 26)}px sans-serif`;
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, x, y + bh / 2);
+    };
+
+    drawBtn('▶  New Game', cx, by,      '#1a3a6a', '#4466cc', '#ffffff');
+    if (hasSave) {
+      drawBtn('↩  Continue', cx, by + 60, '#1a4a2a', '#44aa66', '#aaffaa');
+    }
+
+    ctx.fillStyle = '#334455';
+    ctx.font = '11px sans-serif';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('Click / Tap to select', cx, ch - 16);
   }
 
   // Draw enemy-acting highlight (pulsing red border + "!" above unit)
