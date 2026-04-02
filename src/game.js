@@ -65,12 +65,13 @@ export class Game {
 
     this._setupInput();
 
-    // Defer init by one animation frame so CSS layout has settled.
-    // This ensures canvas-wrap.clientHeight is accurate (especially on mobile).
-    requestAnimationFrame(() => {
+    // Defer init by two animation frames so CSS layout has fully settled.
+    // A single rAF is sometimes not enough on iOS/Android for flex layout
+    // to propagate correct clientWidth/clientHeight to #canvas-wrap.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
       this._initChapter(CHAPTER_1);
       this._startPlayerPhase();
-    });
+    }));
     this._loop();
   }
 

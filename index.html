@@ -61,6 +61,7 @@
     /* canvas-wrap must flex-grow to fill remaining space after log/buttons */
     #canvas-wrap {
       flex: 1;
+      width: 100%;   /* always fill parent width so clientWidth is correct on resize */
       min-height: 0;
       display: flex;
       align-items: flex-start;
