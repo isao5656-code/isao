@@ -1,7 +1,7 @@
 // ============================================================
 // game.js - Main game loop and state machine
 // ============================================================
-import { CHAPTER_1 } from './data.js';
+import { CHAPTERS } from './data.js';
 import { Unit }       from './unit.js';
 import { GameMap }    from './map.js';
 import { buildCombatPreview, executeCombat, executeHeal } from './combat.js';
@@ -18,6 +18,7 @@ const STATE = {
   COMBAT_PREVIEW:  'COMBAT_PREVIEW',
   HEAL_SELECT:     'HEAL_SELECT',
   ENEMY_PHASE:     'ENEMY_PHASE',
+  CHAPTER_CLEAR:   'CHAPTER_CLEAR',
   VICTORY:         'VICTORY',
   GAME_OVER:       'GAME_OVER',
 };
@@ -62,14 +63,16 @@ export class Game {
 
     // Optional callback fired whenever state changes (used by HTML buttons)
     this._onStateChange = null;
+    // Optional callback fired when chapter changes
+    this._onChapterChange = null;
+    // Current chapter index
+    this.chapterIndex = 0;
 
     this._setupInput();
 
     // Defer init by two animation frames so CSS layout has fully settled.
-    // A single rAF is sometimes not enough on iOS/Android for flex layout
-    // to propagate correct clientWidth/clientHeight to #canvas-wrap.
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      this._initChapter(CHAPTER_1);
+      this._initChapterWith(CHAPTERS[0], {});
       this._startPlayerPhase();
     }));
     this._loop();
@@ -78,28 +81,56 @@ export class Game {
   // Called by index.html on window resize / orientation change
   _onResize() {
     if (!this.map) return;
-    this.renderer.resize(CHAPTER_1.width, CHAPTER_1.height);
+    const ch = CHAPTERS[this.chapterIndex];
+    this.renderer.resize(ch.width, ch.height);
     this._updateEndTurnBtn();
   }
 
   // ---- Initialization ----
 
-  _initChapter(chapter) {
+  // savedStats: map of unit id -> { level, exp, maxHp, atk, def, spd, res }
+  // Pass {} to start fresh with base stats.
+  _initChapterWith(chapter, savedStats) {
     this.map = new GameMap(chapter);
 
     for (const pd of chapter.playerUnits) {
       const u = new Unit({ ...pd, team: 'player' });
+      const s = savedStats[pd.id];
+      if (s) {
+        u.level = s.level; u.exp = s.exp;
+        u.maxHp = s.maxHp; u.atk = s.atk;
+        u.def   = s.def;   u.spd = s.spd; u.res = s.res;
+        u.hp    = u.maxHp; // full heal between chapters
+      }
       this.map.addUnit(u);
     }
     for (const ed of chapter.enemyUnits) {
-      const u = new Unit({ ...ed, team: 'enemy' });
-      this.map.addUnit(u);
+      this.map.addUnit(new Unit({ ...ed, team: 'enemy' }));
     }
 
     this.renderer.resize(chapter.width, chapter.height);
     this._updateEndTurnBtn();
     this.turn = 1;
     this.logMessages = [];
+    this.selectedUnit  = null;
+    this.moveRange     = null;
+    this.attackRange   = null;
+    this.combatPreview = null;
+
+    if (this._onChapterChange) this._onChapterChange(chapter);
+  }
+
+  // Advance to the next chapter, carrying over player unit stats
+  _advanceChapter() {
+    const savedStats = {};
+    for (const u of this.map.playerUnits) {
+      savedStats[u.id] = {
+        level: u.level, exp: u.exp,
+        maxHp: u.maxHp, atk: u.atk, def: u.def, spd: u.spd, res: u.res,
+      };
+    }
+    this.chapterIndex++;
+    this._initChapterWith(CHAPTERS[this.chapterIndex], savedStats);
   }
 
   _updateEndTurnBtn() {
@@ -155,7 +186,8 @@ export class Game {
 
   _checkWinLoss() {
     if (this.map.enemyUnits.length === 0) {
-      this.state = STATE.VICTORY;
+      const isLast = this.chapterIndex >= CHAPTERS.length - 1;
+      this.state = isLast ? STATE.VICTORY : STATE.CHAPTER_CLEAR;
       if (this._onStateChange) this._onStateChange();
       return true;
     }
@@ -183,20 +215,24 @@ export class Game {
       if (key === 'r' || key === 'R') {
         if (this.state === STATE.VICTORY || this.state === STATE.GAME_OVER) {
           this._restart();
+        } else if (this.state === STATE.CHAPTER_CLEAR) {
+          this._advanceChapter();
+          this._startPlayerPhase();
         }
       }
     });
   }
 
   _restart() {
-    this._initChapter(CHAPTER_1);
+    this.chapterIndex = 0;
+    this._initChapterWith(CHAPTERS[0], {});
     this._startPlayerPhase();
   }
 
   // ---- Click handler ----
 
   _onClick(tx, ty, sx, sy) {
-    if (this.state === STATE.VICTORY || this.state === STATE.GAME_OVER) return;
+    if (this.state === STATE.VICTORY || this.state === STATE.GAME_OVER || this.state === STATE.CHAPTER_CLEAR) return;
     if (this.state === STATE.ENEMY_PHASE) return;
 
     // Check End Turn button
@@ -536,10 +572,14 @@ export class Game {
       r.drawCursor(this.cursorX, this.cursorY, '#ffff44', this.pulse);
     }
 
-    // Hover unit panel (bottom-left)
+    // Hover unit panel — switch between bottom-left and top-left to avoid covering the unit
     const panelUnit = this.hoveredUnit || this.selectedUnit;
     if (panelUnit && panelUnit.alive) {
-      r.drawUnitPanel(panelUnit, 4, this.canvas.height - 128);
+      const unitPixY = panelUnit.y * TILE_SIZE;
+      const panelY = unitPixY > this.canvas.height * 0.55
+        ? 4                            // unit is in bottom half → draw panel at top
+        : this.canvas.height - 128;    // unit is in top half  → draw panel at bottom
+      r.drawUnitPanel(panelUnit, 4, panelY);
     }
 
     // Hover terrain panel (bottom-right area)
@@ -587,7 +627,8 @@ export class Game {
     );
 
     // End screens
-    if (state === STATE.VICTORY)   r.drawEndScreen(true);
-    if (state === STATE.GAME_OVER) r.drawEndScreen(false);
+    if (state === STATE.CHAPTER_CLEAR) r.drawChapterClearScreen(CHAPTERS[this.chapterIndex + 1]);
+    if (state === STATE.VICTORY)       r.drawEndScreen(true);
+    if (state === STATE.GAME_OVER)     r.drawEndScreen(false);
   }
 }

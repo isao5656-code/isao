@@ -522,6 +522,32 @@ export class Renderer {
     ctx.fillText(text, x + 10, y + h / 2);
   }
 
+  // Draw chapter-clear overlay
+  drawChapterClearScreen(nextChapter) {
+    const ctx = this.ctx;
+    const cx = this.canvas.width  / 2;
+    const cy = this.canvas.height / 2;
+
+    ctx.fillStyle = 'rgba(0, 30, 60, 0.90)';
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    ctx.fillStyle = '#88ddff';
+    ctx.font = 'bold 36px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('⚔ Chapter Clear!', cx, cy - 30);
+
+    if (nextChapter) {
+      ctx.fillStyle = '#aaccff';
+      ctx.font = '16px sans-serif';
+      ctx.fillText('Next: ' + nextChapter.name, cx, cy + 10);
+    }
+
+    ctx.fillStyle = '#888888';
+    ctx.font = '13px sans-serif';
+    ctx.fillText('Press R (or Next Chapter button) to continue', cx, cy + 42);
+  }
+
   _roundRect(ctx, x, y, w, h, r) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);

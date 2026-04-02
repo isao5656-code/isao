@@ -137,3 +137,89 @@ export const CHAPTER_1 = {
   winCondition: 'rout',   // kill all enemies
   loseCondition: 'lord',  // lord dies
 };
+
+// --- Chapter 2 Map ---
+// River crossing: sea tiles in row 3, bridges at x=6 and x=10
+const T2 = [
+  ['F','F','F','P','P','P','P','P','P','P','P','F','F','F','F'],
+  ['F','P','P','P','T','P','P','P','T','P','P','F','P','P','F'],
+  ['P','P','P','P','P','P','P','P','P','P','P','P','P','P','P'],
+  ['P','P','P','P','S','S','B','S','S','S','B','S','P','P','P'],
+  ['P','P','P','P','P','P','P','P','P','P','P','P','P','P','P'],
+  ['P','P','P','P','P','P','P','P','P','P','P','P','P','P','P'],
+  ['F','F','P','P','P','P','P','P','P','P','P','P','F','F','F'],
+  ['F','P','P','M','M','P','P','P','M','M','P','P','P','P','F'],
+  ['P','P','P','M','P','P','V','P','P','M','P','P','P','P','P'],
+  ['P','P','P','P','P','P','P','P','P','P','P','P','P','T','P'],
+];
+
+export const CHAPTER_2 = {
+  name: 'Chapter 2: River of Swords',
+  width: 15,
+  height: 10,
+  tiles: T2.map(row => row.map(c => TILE_CODE[c])),
+  playerUnits: [
+    { id: 'p1', name: 'Aric',   cls: 'lord',   x: 1, y: 9, isLord: true },
+    { id: 'p2', name: 'Gareth', cls: 'knight', x: 0, y: 8 },
+    { id: 'p3', name: 'Lyra',   cls: 'mage',   x: 1, y: 8 },
+    { id: 'p4', name: 'Finn',   cls: 'archer', x: 2, y: 9 },
+    { id: 'p5', name: 'Elena',  cls: 'cleric', x: 0, y: 9 },
+  ],
+  enemyUnits: [
+    { id: 'e1', name: 'Soldier',    cls: 'soldier',   x: 12, y: 0 },
+    { id: 'e2', name: 'Soldier',    cls: 'soldier',   x: 13, y: 2 },
+    { id: 'e3', name: 'Brigand',    cls: 'brigand',   x: 11, y: 1 },
+    { id: 'e4', name: 'Brigand',    cls: 'brigand',   x:  6, y: 2 },
+    { id: 'e5', name: 'Mercenary',  cls: 'mercenary', x: 14, y: 3 },
+    { id: 'e6', name: 'Mercenary',  cls: 'mercenary', x:  9, y: 1 },
+    { id: 'e7', name: 'Archer',     cls: 'archer',    x: 14, y: 5 },
+    { id: 'e8', name: 'Boss Drake', cls: 'knight',    x:  8, y: 1, isBoss: true },
+  ],
+  winCondition: 'rout',
+  loseCondition: 'lord',
+};
+
+// --- Chapter 3 Map ---
+// Fortress assault: forts and mountains in the enemy's half
+const T3 = [
+  ['M','M','P','P','P','P','P','P','P','P','P','P','P','M','M'],
+  ['M','P','P','F','F','P','T','P','T','P','F','F','P','P','M'],
+  ['P','P','P','F','P','P','P','P','P','P','P','F','P','P','P'],
+  ['P','P','P','P','P','P','P','P','P','P','P','P','P','P','P'],
+  ['P','T','P','P','P','F','F','P','F','F','P','P','P','T','P'],
+  ['P','P','P','P','P','F','P','P','P','F','P','P','P','P','P'],
+  ['P','P','P','P','P','P','P','P','P','P','P','P','P','P','P'],
+  ['P','P','M','M','P','P','P','P','P','P','M','M','P','P','P'],
+  ['P','P','M','P','P','P','V','P','P','P','P','M','P','P','P'],
+  ['P','P','P','P','P','P','P','P','P','P','P','P','P','T','P'],
+];
+
+export const CHAPTER_3 = {
+  name: 'Chapter 3: The Fallen Fortress',
+  width: 15,
+  height: 10,
+  tiles: T3.map(row => row.map(c => TILE_CODE[c])),
+  playerUnits: [
+    { id: 'p1', name: 'Aric',   cls: 'lord',   x: 1, y: 9, isLord: true },
+    { id: 'p2', name: 'Gareth', cls: 'knight', x: 0, y: 8 },
+    { id: 'p3', name: 'Lyra',   cls: 'mage',   x: 1, y: 8 },
+    { id: 'p4', name: 'Finn',   cls: 'archer', x: 2, y: 9 },
+    { id: 'p5', name: 'Elena',  cls: 'cleric', x: 0, y: 9 },
+  ],
+  enemyUnits: [
+    { id: 'e1',  name: 'Soldier',    cls: 'soldier',   x:  6, y: 1 },
+    { id: 'e2',  name: 'Soldier',    cls: 'soldier',   x:  8, y: 1 },
+    { id: 'e3',  name: 'Soldier',    cls: 'soldier',   x: 12, y: 0 },
+    { id: 'e4',  name: 'Brigand',    cls: 'brigand',   x: 13, y: 2 },
+    { id: 'e5',  name: 'Brigand',    cls: 'brigand',   x: 14, y: 4 },
+    { id: 'e6',  name: 'Mercenary',  cls: 'mercenary', x: 11, y: 3 },
+    { id: 'e7',  name: 'Mercenary',  cls: 'mercenary', x: 14, y: 5 },
+    { id: 'e8',  name: 'Archer',     cls: 'archer',    x:  9, y: 0 },
+    { id: 'e9',  name: 'Archer',     cls: 'archer',    x: 13, y: 3 },
+    { id: 'e10', name: 'Boss Garm',  cls: 'knight',    x: 13, y: 1, isBoss: true },
+  ],
+  winCondition: 'rout',
+  loseCondition: 'lord',
+};
+
+export const CHAPTERS = [CHAPTER_1, CHAPTER_2, CHAPTER_3];
