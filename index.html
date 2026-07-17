@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>クラッシュバトル</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #1a1a2e;
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #game-container {
+    position: relative;
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+  }
+  canvas {
+    display: block;
+    background: #4a7c3f;
+    max-width: 100vw;
+    max-height: 100vh;
+  }
+  #overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: rgba(15, 15, 40, 0.85);
+    z-index: 10;
+    color: white;
+  }
+  #overlay.hidden { display: none; }
+  #overlay h1 {
+    font-size: 42px;
+    margin-bottom: 8px;
+    text-shadow: 0 3px 0 #b8860b, 0 5px 10px rgba(0,0,0,0.5);
+    color: #ffd700;
+  }
+  #overlay p {
+    font-size: 16px;
+    margin-bottom: 24px;
+    color: #ccc;
+    text-align: center;
+    line-height: 1.7;
+    padding: 0 20px;
+  }
+  #overlay button {
+    font-size: 24px;
+    padding: 14px 48px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #ffd94d, #f5a623);
+    color: #5a3a00;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 5px 0 #b8791a, 0 8px 12px rgba(0,0,0,0.4);
+    transition: transform 0.1s;
+  }
+  #overlay button:active {
+    transform: translateY(4px);
+    box-shadow: 0 1px 0 #b8791a;
+  }
+  #result-title { font-size: 48px !important; }
+</style>
+</head>
+<body>
+<div id="game-container">
+  <canvas id="canvas"></canvas>
+  <div id="overlay">
+    <h1 id="title">⚔️ クラッシュバトル ⚔️</h1>
+    <p id="desc">
+      カードを選んで自陣（下半分）をタップしてユニットを召喚！<br>
+      エリクサーを管理しながら敵のタワーを破壊しよう。<br>
+      制限時間は3分。キングタワーを壊せば即勝利！
+    </p>
+    <button id="start-btn">バトル開始</button>
+  </div>
+</div>
+<script>
+"use strict";
+
+// ============================================================
+// 定数・設定
+// ============================================================
+const FIELD_W = 540;   // 論理フィールド幅
+const FIELD_H = 960;   // 論理フィールド高さ
+const CARD_AREA_H = 150; // 手札エリアの高さ
+const CANVAS_W = FIELD_W;
+const CANVAS_H = FIELD_H + CARD_AREA_H;
+
+const RIVER_Y = FIELD_H / 2;          // 川の位置
+const BRIDGE_XS = [FIELD_W * 0.25, FIELD_W * 0.75]; // 橋のx座標
+const BRIDGE_W = 70;
+
+const MATCH_TIME = 180;   // 秒
+const MAX_ELIXIR = 10;
+const ELIXIR_RATE = 1 / 2.8;  // 毎秒回復量
+
+// ============================================================
+// ユニット定義
+// ============================================================
+const UNIT_TYPES = {
+  knight: {
+    name: "ナイト", emoji: "🗡️", cost: 3,
+    hp: 700, dmg: 90, range: 30, speed: 55, attackSpeed: 1.1,
+    radius: 18, color: "#4a69bd", targets: "ground", flying: false,
+    count: 1,
+  },
+  archer: {
+    name: "アーチャー", emoji: "🏹", cost: 3,
+    hp: 220, dmg: 55, range: 140, speed: 60, attackSpeed: 1.0,
+    radius: 13, color: "#e58e26", targets: "all", flying: false,
+    count: 2, projectile: true,
+  },
+  giant: {
+    name: "ジャイアント", emoji: "🗿", cost: 5,
+    hp: 1900, dmg: 120, range: 32, speed: 38, attackSpeed: 1.5,
+    radius: 26, color: "#b06e3b", targets: "buildings", flying: false,
+    count: 1,
+  },
+  wizard: {
+    name: "ウィザード", emoji: "🔥", cost: 5,
+    hp: 340, dmg: 130, range: 150, speed: 55, attackSpeed: 1.4,
+    radius: 15, color: "#8e44ad", targets: "all", flying: false,
+    count: 1, projectile: true, splash: 45,
+  },
+  minipekka: {
+    name: "ミニペッカ", emoji: "⚡", cost: 4,
+    hp: 600, dmg: 320, range: 30, speed: 65, attackSpeed: 1.6,
+    radius: 17, color: "#2c3e50", targets: "ground", flying: false,
+    count: 1,
+  },
+  goblin: {
+    name: "ゴブリン", emoji: "👺", cost: 2,
+    hp: 110, dmg: 50, range: 25, speed: 90, attackSpeed: 0.9,
+    radius: 11, color: "#27ae60", targets: "ground", flying: false,
+    count: 3,
+  },
+  valkyrie: {
+    name: "バルキリー", emoji: "🪓", cost: 4,
+    hp: 900, dmg: 110, range: 35, speed: 50, attackSpeed: 1.4,
+    radius: 19, color: "#c0392b", targets: "ground", flying: false,
+    count: 1, splash: 55,
+  },
+  babydragon: {
+    name: "ベビードラゴン", emoji: "🐉", cost: 4,
+    hp: 550, dmg: 90, range: 120, speed: 60, attackSpeed: 1.3,
+    radius: 18, color: "#16a085", targets: "all", flying: true,
+    count: 1, projectile: true, splash: 40,
+  },
+};
+const DECK = Object.keys(UNIT_TYPES);
+
+// タワー定義
+const TOWER_DEF = {
+  princess: { hp: 1400, dmg: 60, range: 190, attackSpeed: 0.9, size: 44 },
+  king:     { hp: 2400, dmg: 80, range: 200, attackSpeed: 1.0, size: 56 },
+};
+
+// ============================================================
+// ゲーム状態
+// ============================================================
+let canvas, ctx, scale = 1, offsetX = 0, offsetY = 0;
+let running = false;
+let lastTime = 0;
+let timeLeft = MATCH_TIME;
+
+let units = [];        // 全ユニット
+let towers = [];       // 全タワー
+let projectiles = [];  // 弾
+let effects = [];      // 演出
+
+const player = { elixir: 5, hand: [], deck: [], selectedCard: -1, side: 1 };
+const enemy  = { elixir: 5, hand: [], deck: [], side: -1, aiTimer: 2 };
+
+let nextId = 1;
+
+// ============================================================
+// 初期化
+// ============================================================
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function initGame() {
+  units = [];
+  projectiles = [];
+  effects = [];
+  timeLeft = MATCH_TIME;
+
+  player.elixir = 5;
+  player.deck = shuffle(DECK);
+  player.hand = player.deck.splice(0, 4);
+  player.selectedCard = -1;
+
+  enemy.elixir = 5;
+  enemy.deck = shuffle(DECK);
+  enemy.hand = enemy.deck.splice(0, 4);
+  enemy.aiTimer = 3;
+
+  // タワー配置: side 1 = プレイヤー(下), side -1 = 敵(上)
+  towers = [];
+  for (const side of [1, -1]) {
+    const yPrincess = side === 1 ? FIELD_H * 0.82 : FIELD_H * 0.18;
+    const yKing     = side === 1 ? FIELD_H * 0.93 : FIELD_H * 0.07;
+    for (const bx of BRIDGE_XS) {
+      towers.push(makeTower("princess", bx, yPrincess, side));
+    }
+    towers.push(makeTower("king", FIELD_W / 2, yKing, side));
+  }
+}
+
+function makeTower(kind, x, y, side) {
+  const def = TOWER_DEF[kind];
+  return {
+    id: nextId++, kind, x, y, side,
+    hp: def.hp, maxHp: def.maxHp || def.hp,
+    dmg: def.dmg, range: def.range,
+    attackSpeed: def.attackSpeed, size: def.size,
+    cooldown: 0, dead: false,
+    isBuilding: true, flying: false,
+    // キングタワーは味方プリンセスタワーが壊されるまで起動しない
+    active: kind !== "king",
+  };
+}
+
+// ============================================================
+// ユニット生成
+// ============================================================
+function spawnUnits(typeKey, x, y, side) {
+  const def = UNIT_TYPES[typeKey];
+  const n = def.count;
+  for (let i = 0; i < n; i++) {
+    const angle = (i / n) * Math.PI * 2;
+    const ox = n > 1 ? Math.cos(angle) * 22 : 0;
+    const oy = n > 1 ? Math.sin(angle) * 22 : 0;
+    units.push({
+      id: nextId++, type: typeKey, def,
+      x: x + ox, y: y + oy, side,
+      hp: def.hp, maxHp: def.hp,
+      cooldown: 0, target: null,
+      dead: false, isBuilding: false, flying: def.flying,
+      bobPhase: Math.random() * Math.PI * 2,
+    });
+  }
+  effects.push({ kind: "spawn", x, y, t: 0, dur: 0.4 });
+}
+
+// ============================================================
+// ターゲット選択・移動
+// ============================================================
+function canTarget(attacker, target) {
+  if (target.dead) return false;
+  if (target.side === attacker.side) return false;
+  const t = attacker.def ? attacker.def.targets : "all";
+  if (attacker.isBuilding) {
+    // タワーは全ユニット攻撃可能
+    return !target.isBuilding;
+  }
+  if (t === "buildings") return target.isBuilding;
+  if (t === "ground") return !target.flying;
+  return true;
+}
+
+function dist(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function findTarget(u) {
+  let best = null, bestD = Infinity;
+  // ユニット優先（建物のみターゲットの場合を除く）
+  const candidates = units.concat(towers);
+  for (const c of candidates) {
+    if (!canTarget(u, c)) continue;
+    const d = dist(u, c);
+    // 視界: ユニットは近くの敵に反応、建物のみは常にタワーへ
+    const sight = c.isBuilding ? Infinity : 220;
+    if (d < sight && d < bestD) {
+      bestD = d;
+      best = c;
+    }
+  }
+  return best;
+}
+
+function effectiveRange(u, target) {
+  const tr = target.isBuilding ? target.size / 2 : (target.def ? target.def.radius : 15);
+  const ur = u.isBuilding ? 0 : u.def.radius;
+  return (u.isBuilding ? u.range : u.def.range) + tr + ur;
+}
+
+// 川を渡るには橋を経由
+function moveUnit(u, dt) {
+  const t = u.target;
+  if (!t) return;
+  let goalX = t.x, goalY = t.y;
+
+  if (!u.flying) {
+    const crossing = (u.y - RIVER_Y) * (goalY - RIVER_Y) < 0;
+    if (crossing) {
+      // 最寄りの橋へ
+      let bx = BRIDGE_XS[0];
+      let bd = Math.abs(u.x - bx) + Math.abs(goalX - bx);
+      for (const b of BRIDGE_XS) {
+        const d = Math.abs(u.x - b) + Math.abs(goalX - b);
+        if (d < bd) { bd = d; bx = b; }
+      }
+      const nearRiver = Math.abs(u.y - RIVER_Y) < 60;
+      const onBridge = Math.abs(u.x - bx) < BRIDGE_W / 2 - 8;
+      if (nearRiver && !onBridge) {
+        goalX = bx; goalY = u.y; // 橋の横まで移動
+      } else if (!onBridge) {
+        goalX = bx; goalY = RIVER_Y + (u.y > RIVER_Y ? 40 : -40);
+      }
+      // 橋の上なら真っ直ぐ渡る
+      if (onBridge && nearRiver) {
+        goalX = bx;
+      }
+    }
+  }
+
+  const dx = goalX - u.x, dy = goalY - u.y;
+  const d = Math.hypot(dx, dy);
+  if (d > 1) {
+    const sp = u.def.speed * dt;
+    u.x += (dx / d) * Math.min(sp, d);
+    u.y += (dy / d) * Math.min(sp, d);
+  }
+
+  // ユニット同士の押し合い（簡易分離）
+  for (const o of units) {
+    if (o === u || o.dead || o.flying !== u.flying) continue;
+    const dd = dist(u, o);
+    const minD = u.def.radius + o.def.radius;
+    if (dd < minD && dd > 0.01) {
+      const push = (minD - dd) / 2;
+      const px = (u.x - o.x) / dd, py = (u.y - o.y) / dd;
+      u.x += px * push * 0.5;
+      u.y += py * push * 0.5;
+    }
+  }
+  u.x = Math.max(u.def.radius, Math.min(FIELD_W - u.def.radius, u.x));
+  u.y = Math.max(u.def.radius, Math.min(FIELD_H - u.def.radius, u.y));
+}
+
+// ============================================================
+// 攻撃
+// ============================================================
+function doAttack(attacker, target) {
+  const def = attacker.def;
+  const isProj = def && def.projectile;
+  if (isProj) {
+    projectiles.push({
+      x: attacker.x, y: attacker.y,
+      target, dmg: def.dmg, speed: 380,
+      splash: def.splash || 0,
+      side: attacker.side,
+      color: def.color,
+    });
+  } else if (attacker.isBuilding) {
+    projectiles.push({
+      x: attacker.x, y: attacker.y - 20,
+      target, dmg: attacker.dmg, speed: 420,
+      splash: 0, side: attacker.side, color: "#f1c40f",
+    });
+  } else {
+    // 近接
+    if (def.splash) {
+      applySplash(target.x, target.y, def.splash, def.dmg, attacker.side);
+      effects.push({ kind: "slash", x: target.x, y: target.y, t: 0, dur: 0.25, big: true });
+    } else {
+      damage(target, def.dmg);
+      effects.push({ kind: "slash", x: target.x, y: target.y, t: 0, dur: 0.2 });
+    }
+  }
+}
+
+function applySplash(x, y, radius, dmg, side) {
+  for (const c of units.concat(towers)) {
+    if (c.dead || c.side === side) continue;
+    if (Math.hypot(c.x - x, c.y - y) <= radius + (c.isBuilding ? c.size / 2 : c.def.radius)) {
+      damage(c, dmg);
+    }
+  }
+}
+
+function damage(target, dmg) {
+  target.hp -= dmg;
+  if (target.hp <= 0 && !target.dead) {
+    target.dead = true;
+    effects.push({ kind: "death", x: target.x, y: target.y, t: 0, dur: 0.5, big: target.isBuilding });
+    if (target.isBuilding) {
+      onTowerDestroyed(target);
+    }
+  }
+}
+
+function onTowerDestroyed(tower) {
+  effects.push({ kind: "explosion", x: tower.x, y: tower.y, t: 0, dur: 0.8 });
+  // キングタワー起動
+  if (tower.kind === "princess") {
+    for (const t of towers) {
+      if (t.side === tower.side && t.kind === "king") t.active = true;
+    }
+  }
+  if (tower.kind === "king") {
+    endGame(tower.side === -1 ? "win" : "lose");
+  }
+}
+
+// ============================================================
+// 更新
+// ============================================================
+function updateCombatant(u, dt) {
+  if (u.dead) return;
+  if (u.isBuilding && !u.active) {
+    // 非起動キングタワー: 攻撃されたら起動
+    if (u.hp < u.maxHp) u.active = true;
+    else return;
+  }
+  u.cooldown -= dt;
+
+  if (!u.target || u.target.dead || !canTarget(u, u.target)) {
+    u.target = findTarget(u);
+  }
+  if (!u.target) return;
+
+  const inRange = dist(u, u.target) <= effectiveRange(u, u.target);
+  if (inRange) {
+    if (u.cooldown <= 0) {
+      doAttack(u, u.target);
+      u.cooldown = u.isBuilding ? u.attackSpeed : u.def.attackSpeed;
+    }
+  } else if (!u.isBuilding) {
+    // 射程外の敵ユニットを見つけたら近い敵に切替チェック
+    moveUnit(u, dt);
+  }
+}
+
+function updateProjectiles(dt) {
+  for (const p of projectiles) {
+    if (p.hit) continue;
+    const t = p.target;
+    if (t.dead) { p.hit = true; continue; }
+    const dx = t.x - p.x, dy = t.y - p.y;
+    const d = Math.hypot(dx, dy);
+    const mv = p.speed * dt;
+    if (d <= mv + 5) {
+      p.hit = true;
+      if (p.splash > 0) {
+        applySplash(t.x, t.y, p.splash, p.dmg, p.side);
+        effects.push({ kind: "explosion", x: t.x, y: t.y, t: 0, dur: 0.35, small: true });
+      } else {
+        damage(t, p.dmg);
+        effects.push({ kind: "hit", x: t.x, y: t.y, t: 0, dur: 0.15 });
+      }
+    } else {
+      p.x += (dx / d) * mv;
+      p.y += (dy / d) * mv;
+    }
+  }
+  projectiles = projectiles.filter(p => !p.hit);
+}
+
+// ============================================================
+// AI
+// ============================================================
+function updateAI(dt) {
+  enemy.elixir = Math.min(MAX_ELIXIR, enemy.elixir + ELIXIR_RATE * dt * (timeLeft < 60 ? 1.5 : 1));
+  enemy.aiTimer -= dt;
+  if (enemy.aiTimer > 0) return;
+
+  // 出せるカードを探す
+  const playable = enemy.hand
+    .map((c, i) => ({ c, i, cost: UNIT_TYPES[c].cost }))
+    .filter(o => o.cost <= enemy.elixir);
+  if (playable.length === 0) {
+    enemy.aiTimer = 0.5;
+    return;
+  }
+
+  // 脅威判定: 自陣に入っているプレイヤーユニット
+  const threats = units.filter(u => u.side === 1 && !u.dead && u.y < RIVER_Y);
+  let choice, x, y;
+
+  if (threats.length > 0 && Math.random() < 0.75) {
+    // 防衛: 脅威の近くに出す
+    const threat = threats.reduce((a, b) => (a.y < b.y ? a : b)); // 最も奥まで来た敵
+    choice = playable[Math.floor(Math.random() * playable.length)];
+    x = threat.x + (Math.random() - 0.5) * 40;
+    y = Math.max(50, threat.y - 60);
+  } else {
+    // 攻撃: エリクサーが溜まったらレーンに出す
+    if (enemy.elixir < 6 && Math.random() < 0.6) {
+      enemy.aiTimer = 1.0;
+      return;
+    }
+    // 高コスト優先で選ぶ
+    playable.sort((a, b) => b.cost - a.cost);
+    choice = Math.random() < 0.6 ? playable[0] : playable[Math.floor(Math.random() * playable.length)];
+    // 弱っているプレイヤータワーのレーンを狙う
+    const pTowers = towers.filter(t => t.side === 1 && t.kind === "princess" && !t.dead);
+    let laneX;
+    if (pTowers.length > 0) {
+      const weakest = pTowers.reduce((a, b) => (a.hp < b.hp ? a : b));
+      laneX = weakest.x;
+    } else {
+      laneX = BRIDGE_XS[Math.floor(Math.random() * 2)];
+    }
+    x = laneX + (Math.random() - 0.5) * 60;
+    y = FIELD_H * 0.15 + Math.random() * FIELD_H * 0.2;
+  }
+
+  x = Math.max(30, Math.min(FIELD_W - 30, x));
+  y = Math.max(30, Math.min(RIVER_Y - 30, y));
+
+  enemy.elixir -= choice.cost;
+  spawnUnits(choice.c, x, y, -1);
+  // 手札回転
+  enemy.deck.push(enemy.hand[choice.i]);
+  enemy.hand[choice.i] = enemy.deck.shift();
+  enemy.aiTimer = 1.2 + Math.random() * 2.0;
+}
+
+// ============================================================
+// メインループ
+// ============================================================
+function update(dt) {
+  timeLeft -= dt;
+  if (timeLeft <= 0) {
+    timeLeft = 0;
+    judgeByTowers();
+    return;
+  }
+
+  const rate = ELIXIR_RATE * (timeLeft < 60 ? 1.5 : 1);
+  player.elixir = Math.min(MAX_ELIXIR, player.elixir + rate * dt);
+
+  updateAI(dt);
+
+  for (const u of units) updateCombatant(u, dt);
+  for (const t of towers) updateCombatant(t, dt);
+  updateProjectiles(dt);
+
+  units = units.filter(u => !u.dead);
+
+  for (const e of effects) e.t += dt;
+  effects = effects.filter(e => e.t < e.dur);
+}
+
+function judgeByTowers() {
+  const count = side => towers.filter(t => t.side === side && !t.dead).length;
+  const p = count(1), e = count(-1);
+  if (p > e) endGame("win");
+  else if (p < e) endGame("lose");
+  else {
+    // タワー数同点ならキングタワーHPで判定
+    const kingHp = side => {
+      const k = towers.find(t => t.side === side && t.kind === "king");
+      return k && !k.dead ? k.hp : 0;
+    };
+    const ph = kingHp(1), eh = kingHp(-1);
+    endGame(ph > eh ? "win" : ph < eh ? "lose" : "draw");
+  }
+}
+
+function endGame(result) {
+  running = false;
+  const overlay = document.getElementById("overlay");
+  const title = document.getElementById("title");
+  const desc = document.getElementById("desc");
+  const btn = document.getElementById("start-btn");
+  overlay.classList.remove("hidden");
+  title.id = "result-title";
+  if (result === "win") {
+    title.textContent = "🏆 勝利！ 🏆";
+    desc.textContent = "見事な戦いだった！";
+  } else if (result === "lose") {
+    title.textContent = "💀 敗北… 💀";
+    desc.textContent = "次こそ勝利をつかもう！";
+  } else {
+    title.textContent = "🤝 引き分け 🤝";
+    desc.textContent = "互角の戦いだった！";
+  }
+  btn.textContent = "もう一度";
+}
+
+// ============================================================
+// 描画
+// ============================================================
+function draw() {
+  ctx.save();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.translate(offsetX, offsetY);
+  ctx.scale(scale, scale);
+
+  drawField();
+  drawTowers();
+  drawUnits();
+  drawProjectiles();
+  drawEffects();
+  drawDeployPreview();
+  drawHUD();
+  drawCards();
+
+  ctx.restore();
+}
+
+function drawField() {
+  // 草地
+  const grad = ctx.createLinearGradient(0, 0, 0, FIELD_H);
+  grad.addColorStop(0, "#c0603f");
+  grad.addColorStop(0.48, "#a05535");
+  grad.addColorStop(0.52, "#4e8a44");
+  grad.addColorStop(1, "#5a9c4e");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+
+  // 敵陣は薄い赤味、自陣は薄い緑
+  ctx.fillStyle = "rgba(200, 80, 60, 0.12)";
+  ctx.fillRect(0, 0, FIELD_W, RIVER_Y);
+
+  // タイル模様
+  ctx.strokeStyle = "rgba(0,0,0,0.05)";
+  ctx.lineWidth = 1;
+  const tile = 45;
+  for (let x = 0; x <= FIELD_W; x += tile) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, FIELD_H); ctx.stroke();
+  }
+  for (let y = 0; y <= FIELD_H; y += tile) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(FIELD_W, y); ctx.stroke();
+  }
+
+  // 川
+  const riverGrad = ctx.createLinearGradient(0, RIVER_Y - 30, 0, RIVER_Y + 30);
+  riverGrad.addColorStop(0, "#3b7dc4");
+  riverGrad.addColorStop(0.5, "#5aa7e8");
+  riverGrad.addColorStop(1, "#3b7dc4");
+  ctx.fillStyle = riverGrad;
+  ctx.fillRect(0, RIVER_Y - 28, FIELD_W, 56);
+
+  // 波
+  ctx.strokeStyle = "rgba(255,255,255,0.35)";
+  ctx.lineWidth = 2;
+  const wave = Date.now() / 600;
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    for (let x = 0; x <= FIELD_W; x += 8) {
+      const y = RIVER_Y - 12 + i * 12 + Math.sin(x / 30 + wave + i) * 3;
+      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  // 橋
+  for (const bx of BRIDGE_XS) {
+    ctx.fillStyle = "#9c7040";
+    ctx.fillRect(bx - BRIDGE_W / 2, RIVER_Y - 32, BRIDGE_W, 64);
+    ctx.fillStyle = "#b58453";
+    ctx.fillRect(bx - BRIDGE_W / 2 + 5, RIVER_Y - 32, BRIDGE_W - 10, 64);
+    // 板
+    ctx.strokeStyle = "rgba(0,0,0,0.15)";
+    for (let y = RIVER_Y - 28; y < RIVER_Y + 32; y += 9) {
+      ctx.beginPath();
+      ctx.moveTo(bx - BRIDGE_W / 2 + 5, y);
+      ctx.lineTo(bx + BRIDGE_W / 2 - 5, y);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawTowers() {
+  for (const t of towers) {
+    if (t.dead) {
+      // 瓦礫
+      ctx.fillStyle = "#666";
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.size / 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#555";
+      ctx.fillRect(t.x - t.size / 4, t.y - t.size / 5, t.size / 2, t.size / 3);
+      continue;
+    }
+    const s = t.size;
+    const isKing = t.kind === "king";
+    const baseColor = t.side === 1 ? "#3867d6" : "#eb3b5a";
+    const roofColor = t.side === 1 ? "#4b7bec" : "#fc5c65";
+
+    // 影
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.beginPath();
+    ctx.ellipse(t.x, t.y + s / 2, s / 1.6, s / 4.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 土台
+    ctx.fillStyle = "#95a5a6";
+    ctx.fillRect(t.x - s / 2, t.y - s / 3, s, s * 0.8);
+    ctx.fillStyle = "#7f8c8d";
+    ctx.fillRect(t.x - s / 2, t.y + s * 0.3, s, s * 0.17);
+
+    // 本体
+    ctx.fillStyle = baseColor;
+    ctx.fillRect(t.x - s / 2.6, t.y - s * 0.75, s / 1.3, s * 0.6);
+
+    // 屋根（三角）
+    ctx.fillStyle = roofColor;
+    ctx.beginPath();
+    ctx.moveTo(t.x - s / 2.2, t.y - s * 0.7);
+    ctx.lineTo(t.x + s / 2.2, t.y - s * 0.7);
+    ctx.lineTo(t.x, t.y - s * 1.25);
+    ctx.closePath();
+    ctx.fill();
+
+    // 王冠マーク
+    if (isKing) {
+      ctx.font = `${s * 0.5}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("👑", t.x, t.y - s * 0.05);
+      if (!t.active) {
+        ctx.font = `${s * 0.3}px sans-serif`;
+        ctx.fillText("💤", t.x + s * 0.4, t.y - s * 0.9);
+      }
+    }
+
+    // HPバー
+    drawHpBar(t.x, t.y - t.size * 1.35, t.size * 1.2, t.hp, t.maxHp, t.side);
+  }
+}
+
+function drawHpBar(x, y, w, hp, maxHp, side) {
+  const h = 7;
+  const ratio = Math.max(0, hp / maxHp);
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.fillRect(x - w / 2 - 1, y - 1, w + 2, h + 2);
+  ctx.fillStyle = side === 1 ? "#2ecc71" : "#e74c3c";
+  ctx.fillRect(x - w / 2, y, w * ratio, h);
+}
+
+function drawUnits() {
+  // 描画順: y座標順
+  const sorted = units.slice().sort((a, b) => a.y - b.y);
+  for (const u of sorted) {
+    const r = u.def.radius;
+    const bob = Math.sin(Date.now() / 150 + u.bobPhase) * 2;
+    const fly = u.flying ? -14 + Math.sin(Date.now() / 300 + u.bobPhase) * 4 : 0;
+    const uy = u.y + fly;
+
+    // 影
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.beginPath();
+    ctx.ellipse(u.x, u.y + r * 0.8, r * 0.9, r * 0.35, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 本体（円 + チームリング）
+    ctx.beginPath();
+    ctx.arc(u.x, uy + bob * 0.3, r, 0, Math.PI * 2);
+    ctx.fillStyle = u.def.color;
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = u.side === 1 ? "#2ecc71" : "#e74c3c";
+    ctx.stroke();
+
+    // 絵文字
+    ctx.font = `${r * 1.3}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(u.def.emoji, u.x, uy + bob * 0.3 - 1);
+
+    // HPバー
+    drawHpBar(u.x, uy - r - 12, r * 2.2, u.hp, u.maxHp, u.side);
+  }
+}
+
+function drawProjectiles() {
+  for (const p of projectiles) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = p.color || "#f1c40f";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+  }
+}
+
+function drawEffects() {
+  for (const e of effects) {
+    const pr = e.t / e.dur;
+    if (e.kind === "spawn") {
+      ctx.strokeStyle = `rgba(255, 255, 255, ${1 - pr})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, 10 + pr * 35, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (e.kind === "slash") {
+      const sz = e.big ? 30 : 18;
+      ctx.strokeStyle = `rgba(255, 255, 200, ${1 - pr})`;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(e.x - sz + pr * 10, e.y - sz + pr * 10);
+      ctx.lineTo(e.x + sz - pr * 10, e.y + sz - pr * 10);
+      ctx.stroke();
+    } else if (e.kind === "hit") {
+      ctx.fillStyle = `rgba(255, 220, 100, ${1 - pr})`;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, 8 + pr * 8, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (e.kind === "death") {
+      ctx.font = `${20 + pr * 10}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.globalAlpha = 1 - pr;
+      ctx.fillText("💨", e.x, e.y - pr * 25);
+      ctx.globalAlpha = 1;
+    } else if (e.kind === "explosion") {
+      const maxR = e.small ? 40 : 80;
+      ctx.fillStyle = `rgba(255, ${150 - pr * 100}, 50, ${0.7 * (1 - pr)})`;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, pr * maxR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(255, 255, 255, ${1 - pr})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, pr * maxR * 1.2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawDeployPreview() {
+  if (player.selectedCard < 0) return;
+  // 配置可能エリアをハイライト
+  ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+  ctx.fillRect(0, RIVER_Y + 28, FIELD_W, FIELD_H - RIVER_Y - 28);
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+  ctx.lineWidth = 2;
+  ctx.setLineDash([10, 6]);
+  ctx.strokeRect(2, RIVER_Y + 28, FIELD_W - 4, FIELD_H - RIVER_Y - 30);
+  ctx.setLineDash([]);
+}
+
+function drawHUD() {
+  // タイマー
+  const min = Math.floor(timeLeft / 60);
+  const sec = Math.floor(timeLeft % 60);
+  ctx.font = "bold 28px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "rgba(0,0,0,0.4)";
+  ctx.fillRect(FIELD_W / 2 - 55, 6, 110, 38);
+  ctx.fillStyle = timeLeft < 30 ? "#ff6b6b" : "#fff";
+  ctx.fillText(`${min}:${sec.toString().padStart(2, "0")}`, FIELD_W / 2, 12);
+
+  if (timeLeft < 60 && timeLeft > 0) {
+    ctx.font = "bold 13px sans-serif";
+    ctx.fillStyle = "#c56cf0";
+    ctx.fillText("エリクサー2倍！", FIELD_W / 2, 46);
+  }
+}
+
+function drawCards() {
+  const areaY = FIELD_H;
+  // 背景
+  ctx.fillStyle = "#22284a";
+  ctx.fillRect(0, areaY, FIELD_W, CARD_AREA_H);
+
+  // エリクサーバー
+  const ebX = 14, ebY = areaY + CARD_AREA_H - 30, ebW = FIELD_W - 28, ebH = 18;
+  ctx.fillStyle = "#111";
+  ctx.fillRect(ebX, ebY, ebW, ebH);
+  const eRatio = player.elixir / MAX_ELIXIR;
+  const eGrad = ctx.createLinearGradient(ebX, 0, ebX + ebW, 0);
+  eGrad.addColorStop(0, "#a55eea");
+  eGrad.addColorStop(1, "#d980fa");
+  ctx.fillStyle = eGrad;
+  ctx.fillRect(ebX, ebY, ebW * eRatio, ebH);
+  // 目盛り
+  ctx.strokeStyle = "rgba(255,255,255,0.3)";
+  ctx.lineWidth = 1;
+  for (let i = 1; i < MAX_ELIXIR; i++) {
+    const x = ebX + (ebW / MAX_ELIXIR) * i;
+    ctx.beginPath(); ctx.moveTo(x, ebY); ctx.lineTo(x, ebY + ebH); ctx.stroke();
+  }
+  ctx.font = "bold 15px sans-serif";
+  ctx.fillStyle = "#fff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(`💧 ${Math.floor(player.elixir)}`, FIELD_W / 2, ebY + ebH / 2 + 1);
+
+  // カード
+  const cardW = (FIELD_W - 50) / 4;
+  const cardH = CARD_AREA_H - 48;
+  for (let i = 0; i < 4; i++) {
+    const key = player.hand[i];
+    if (!key) continue;
+    const def = UNIT_TYPES[key];
+    const cx = 10 + i * (cardW + 10);
+    const cy = areaY + 8;
+    const selected = player.selectedCard === i;
+    const affordable = player.elixir >= def.cost;
+
+    // カード枠
+    ctx.fillStyle = selected ? "#f5c542" : affordable ? "#3d4576" : "#2a2f52";
+    roundRect(cx, cy - (selected ? 6 : 0), cardW, cardH, 10);
+    ctx.fill();
+    ctx.strokeStyle = selected ? "#fff" : "rgba(255,255,255,0.2)";
+    ctx.lineWidth = selected ? 3 : 1.5;
+    roundRect(cx, cy - (selected ? 6 : 0), cardW, cardH, 10);
+    ctx.stroke();
+
+    const yOff = selected ? -6 : 0;
+    // 絵文字
+    ctx.font = `${cardW * 0.42}px sans-serif`;
+    ctx.globalAlpha = affordable ? 1 : 0.45;
+    ctx.fillText(def.emoji, cx + cardW / 2, cy + cardH * 0.36 + yOff);
+    // 名前
+    ctx.font = `bold ${Math.min(13, cardW * 0.11)}px sans-serif`;
+    ctx.fillStyle = affordable ? "#fff" : "#888";
+    ctx.fillText(def.name, cx + cardW / 2, cy + cardH * 0.68 + yOff);
+    ctx.globalAlpha = 1;
+
+    // コスト
+    ctx.beginPath();
+    ctx.arc(cx + 14, cy + 14 + yOff, 12, 0, Math.PI * 2);
+    ctx.fillStyle = "#a55eea";
+    ctx.fill();
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.font = "bold 14px sans-serif";
+    ctx.fillStyle = "#fff";
+    ctx.fillText(def.cost, cx + 14, cy + 15 + yOff);
+  }
+
+  // 次のカード
+  if (player.deck.length > 0) {
+    ctx.font = "11px sans-serif";
+    ctx.fillStyle = "#aaa";
+    ctx.textAlign = "left";
+    ctx.fillText(`次: ${UNIT_TYPES[player.deck[0]].emoji}`, 14, areaY + CARD_AREA_H - 38);
+  }
+}
+
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// ============================================================
+// 入力
+// ============================================================
+function toGameCoords(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const x = (clientX - rect.left) * (canvas.width / rect.width);
+  const y = (clientY - rect.top) * (canvas.height / rect.height);
+  return { x: (x - offsetX) / scale, y: (y - offsetY) / scale };
+}
+
+function handleTap(clientX, clientY) {
+  if (!running) return;
+  const { x, y } = toGameCoords(clientX, clientY);
+
+  // カードエリア
+  if (y >= FIELD_H) {
+    const cardW = (FIELD_W - 50) / 4;
+    for (let i = 0; i < 4; i++) {
+      const cx = 10 + i * (cardW + 10);
+      if (x >= cx && x <= cx + cardW) {
+        player.selectedCard = player.selectedCard === i ? -1 : i;
+        return;
+      }
+    }
+    return;
+  }
+
+  // フィールド: 配置
+  if (player.selectedCard >= 0) {
+    const key = player.hand[player.selectedCard];
+    const def = UNIT_TYPES[key];
+    if (player.elixir >= def.cost && y > RIVER_Y + 28) {
+      player.elixir -= def.cost;
+      spawnUnits(key, x, Math.min(y, FIELD_H - 30), 1);
+      // 手札回転
+      player.deck.push(key);
+      player.hand[player.selectedCard] = player.deck.shift();
+      player.selectedCard = -1;
+    } else if (y <= RIVER_Y + 28) {
+      // 敵陣タップ: 何もしない（選択維持）
+    }
+  }
+}
+
+// ============================================================
+// セットアップ
+// ============================================================
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const gameAspect = CANVAS_W / CANVAS_H;
+  const winAspect = vw / vh;
+
+  let cssW, cssH;
+  if (winAspect > gameAspect) {
+    cssH = vh; cssW = vh * gameAspect;
+  } else {
+    cssW = vw; cssH = vw / gameAspect;
+  }
+  canvas.style.width = cssW + "px";
+  canvas.style.height = cssH + "px";
+  canvas.width = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  scale = canvas.width / CANVAS_W;
+  offsetX = 0;
+  offsetY = 0;
+}
+
+function loop(ts) {
+  if (!lastTime) lastTime = ts;
+  const dt = Math.min(0.05, (ts - lastTime) / 1000);
+  lastTime = ts;
+  if (running) update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener("load", () => {
+  canvas = document.getElementById("canvas");
+  ctx = canvas.getContext("2d");
+  resize();
+  window.addEventListener("resize", resize);
+
+  canvas.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    handleTap(e.clientX, e.clientY);
+  });
+
+  document.getElementById("start-btn").addEventListener("click", () => {
+    document.getElementById("overlay").classList.add("hidden");
+    const title = document.getElementById("result-title") || document.getElementById("title");
+    title.id = "title";
+    initGame();
+    running = true;
+    lastTime = 0;
+  });
+
+  initGame();
+  requestAnimationFrame(loop);
+});
+</script>
+</body>
+</html>
