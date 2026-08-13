@@ -6,12 +6,12 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
     "lint": "eslint . --ext .ts,.tsx",
     "test": "vitest run",
     "test:watch": "vitest",
     "art": "node scripts/generate-art.mjs",
-    "docs:scenario": "tsx scripts/generate-scenario.ts"
+    "docs:scenario": "tsx scripts/generate-scenario.ts",
+    "preview": "node scripts/serve-out.mjs"
   },
   "dependencies": {
     "next": "^15.5.23",

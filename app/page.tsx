@@ -20,6 +20,7 @@ import {
   type GameState,
 } from "@/lib/game";
 import { AudioEngine, audioCaption } from "@/lib/audio";
+import { characterImage, sceneImage } from "@/lib/assets";
 
 type Screen = "title" | "game" | "endingList";
 type Panel = "none" | "clues" | "history" | "help" | "saved";
@@ -268,7 +269,7 @@ export default function Page() {
     <main className="stage">
       <div
         className={`scene-layer is-active focus-${node.scene}`}
-        style={{ backgroundImage: `url(/scenes/${node.scene}.svg)` }}
+        style={{ backgroundImage: `url(${sceneImage(node.scene)})` }}
         role="img"
         aria-label={`場面：${node.location}`}
       />
@@ -279,7 +280,7 @@ export default function Page() {
       {node.characters && node.characters.length > 0 && (
         <div className="cast" data-count={node.characters.length}>
           {node.characters.map((c) => (
-            <img key={c} src={`/characters/${c}.svg`} alt="" aria-hidden="true" />
+            <img key={c} src={characterImage(c)} alt="" aria-hidden="true" />
           ))}
         </div>
       )}
@@ -386,7 +387,7 @@ function TitleScreen({
     <main className="stage">
       <div
         className="scene-layer is-active focus-fen"
-        style={{ backgroundImage: "url(/scenes/fen.svg)" }}
+        style={{ backgroundImage: `url(${sceneImage("fen")})` }}
       />
       <div className="atmosphere is-rain" />
       <div className="title-screen">
@@ -428,7 +429,7 @@ function EndingList({
     <main className="stage">
       <div
         className="scene-layer is-active focus-dawn"
-        style={{ backgroundImage: "url(/scenes/dawn.svg)" }}
+        style={{ backgroundImage: `url(${sceneImage("dawn")})` }}
       />
       <div className="atmosphere" />
       <div className="overlay" style={{ background: "rgba(3,6,9,0.86)" }}>

@@ -18,7 +18,37 @@ npm run dev
 # http://localhost:3000
 ```
 
-本番ビルドは `npm run build` → `npm start`。
+公開版と同じ静的ファイルで確かめたいときは、書き出してから配信します。
+
+```bash
+npm run build      # out/ に静的サイトを書き出す
+npm run preview    # http://localhost:3000
+```
+
+## 公開（GitHub Pages）
+
+サーバーを必要としない完全な静的サイトなので、GitHub Pages にそのまま置けます。
+`main` へマージすると `.github/workflows/pages.yml` が自動で公開します。
+
+**初回だけ、リポジトリ側の設定が必要です。**
+GitHub の `Settings` → `Pages` → `Build and deployment` → `Source` を
+**`GitHub Actions`** に変更してください。ここが `Deploy from a branch` のままだと、
+ワークフローは走っても公開されません。
+
+設定後の公開先は `https://<ユーザー名>.github.io/<リポジトリ名>/` です。
+
+プロジェクトページはサブディレクトリに置かれるため、ビルド時に
+`NEXT_PUBLIC_BASE_PATH` でパスを前置します（ワークフローがリポジトリ名から自動で決めます）。
+手元で公開版の状態を再現するには次のようにします。
+
+```bash
+NEXT_PUBLIC_BASE_PATH=/isao npm run build
+NEXT_PUBLIC_BASE_PATH=/isao npm run preview
+# http://localhost:3000/isao/
+```
+
+素の `<img>` や CSS の `url()` には Next.js が basePath を自動で足しません。
+画像を追加するときは必ず `lib/assets.ts` の `asset()` を通してください。
 
 ## 特徴
 
@@ -88,12 +118,22 @@ tests/
 
 ```bash
 npm run dev              開発サーバー
-npm run build            本番ビルド（型検査を含む）
+npm run build            静的書き出し（型検査を含む）→ out/
+npm run preview          書き出した out/ を配信する
 npm test                 68件のテスト
 npm run lint             ESLint
 npm run art              背景と人物シルエットを生成し直す
 npm run docs:scenario    docs/scenario.md を生成し直す
 ```
+
+`npm run art` と `npm run docs:scenario` の出力は決定的です。
+CI が「生成物が最新か」を検査するので、生成スクリプトを直したときは
+実行して差分をコミットしてください。
+
+### CI
+
+`.github/workflows/ci.yml` が、PR と `main` への push で
+lint → test → build → 生成物の鮮度検査を回します。
 
 `docs/scenario.md` は生成物です。手で編集せず、本文は `content/story/*.ts` を直してください。
 

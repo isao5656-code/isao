@@ -150,12 +150,46 @@ Preserve these behaviors unless explicitly asked to change them:
 Artwork is generated, not hand-committed:
 
 ```bash
-node scripts/generate-art.mjs
+npm run art
 ```
 
 Edit the generator, not the SVGs. `tests/story-graph.test.ts` fails if a scene or
 silhouette referenced by the story is missing, or if a declared silhouette is
-never used.
+never used. Both generators are deterministic, and CI fails if their output
+differs from what is committed.
+
+**Never paint an opaque layer over `.scene-layer`.** The title screen previously
+composited `var(--paper)` on top of the background and hid the artwork entirely.
+Overlays must be gradients with alpha below 1 at every stop, so the location
+stays readable.
+
+## Build and asset paths
+
+The app is a fully client-side static site: `next.config.mjs` sets
+`output: "export"` and `npm run build` writes `out/`. There is no `next start`;
+use `npm run preview` to serve the export locally.
+
+GitHub Pages serves the project at `/<repo>/`, so builds for Pages set
+`NEXT_PUBLIC_BASE_PATH`. Next.js applies `basePath` to `<Link>` and `next/image`,
+but **not** to a plain `<img src="...">` or a CSS `url()`. Scene backgrounds and
+character silhouettes use both.
+
+Every static asset URL must go through `lib/assets.ts`:
+
+```ts
+import { sceneImage, characterImage, asset } from "@/lib/assets";
+```
+
+A hard-coded `/scenes/...` or `/characters/...` string in `app/` is a bug — it
+works locally and 404s in production. Verify asset changes with a basePath build:
+
+```bash
+NEXT_PUBLIC_BASE_PATH=/isao npm run build
+NEXT_PUBLIC_BASE_PATH=/isao npm run preview   # http://localhost:3000/isao/
+```
+
+Deployment runs only from `main` via `.github/workflows/pages.yml`. Do not deploy
+or publish unless the user asks.
 
 ## Audio rules
 

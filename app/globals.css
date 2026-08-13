@@ -480,9 +480,32 @@ button {
   gap: 26px;
   text-align: center;
   padding: calc(var(--safe-t) + 24px) 20px calc(var(--safe-b) + 24px);
-  background:
-    radial-gradient(120% 80% at 50% 30%, rgba(20, 32, 42, 0.5), rgba(3, 6, 9, 0.94)),
-    var(--paper);
+  /*
+   * 背後の沼の絵を残したまま、文字を読ませる。
+   * 不透明な層を敷くと絵が完全に消えるので、暗幕はビネットだけにする。
+   */
+  background: radial-gradient(
+    132% 92% at 50% 44%,
+    rgba(4, 8, 12, 0.12) 0%,
+    rgba(4, 8, 12, 0.46) 52%,
+    rgba(3, 6, 9, 0.84) 100%
+  );
+}
+
+/* 題字とメニューの背後だけ、局所的に落として可読性を確保する。 */
+.title-screen > div:first-child,
+.title-screen .title-menu,
+.title-screen .credit {
+  position: relative;
+}
+
+.title-screen h1,
+.title-screen .subtitle {
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.95), 0 0 42px rgba(0, 0, 0, 0.8);
+}
+
+.title-screen .credit {
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.95);
 }
 
 .title-screen h1 {
